@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Create Room — LuminPrompt{% endblock %}
+
+{% block content %}
+<div class="bg-gray-900 rounded-xl p-8 border border-gray-800">
+    <h1 class="text-2xl font-bold mb-6 text-indigo-400">Create a Room</h1>
+
+    <form method="post" class="space-y-5">
+        {% csrf_token %}
+
+        <div>
+            <label class="block text-sm text-gray-400 mb-1">Room Name</label>
+            <input type="text" name="name"
+                   placeholder="e.g. Project Brainstorm"
+                   class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2
+                          text-gray-100 focus:outline-none focus:border-indigo-500">
+            {% if form.name.errors %}
+                <p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <label class="block text-sm text-gray-400 mb-1">Description <span class="text-gray-600">(optional)</span></label>
+            <textarea name="description" rows="3"
+                      placeholder="What is this room for?"
+                      class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2
+                             text-gray-100 focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <button type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold
+                       py-2 rounded-lg transition">
+            Create Room
+        </button>
+    </form>
+
+    <p class="text-center text-gray-600 text-xs mt-4">
+        A private invite link will be generated automatically.
+    </p>
+</div>
+{% endblock %}

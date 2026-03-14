@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ room.name }} — LuminPrompt{% endblock %}
+
+{% block main_class %}max-w-6xl mx-auto mt-8 px-4{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-indigo-400">{{ room.name }}</h1>
+        {% if room.description %}
+            <p class="text-gray-400 text-sm mt-1">{{ room.description }}</p>
+        {% endif %}
+    </div>
+    <div class="flex gap-3">
+        <button
+            onclick="copyInvite('{{ request.scheme }}://{{ request.get_host }}{% url 'room_join' room.slug %}')"
+            class="text-sm text-gray-400 hover:text-indigo-400 border border-gray-700 px-4 py-2 rounded-lg transition">
+            📋 Copy Invite Link
+        </button>
+        <a href="{% url 'rooms_list' %}"
+           class="text-sm text-gray-400 hover:text-white border border-gray-700 px-4 py-2 rounded-lg transition">
+            ← Back
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-4 gap-6">
+
+    <!-- Main area — WebSockets/voice will live here in Step 4 -->
+    <div class="col-span-3 bg-gray-900 border border-gray-800 rounded-xl p-6 min-h-96 flex flex-col items-center justify-center">
+        <p class="text-gray-600 text-sm">🎙️ Voice collaboration coming in Step 4</p>
+        <p class="text-gray-700 text-xs mt-2">WebSockets · Voice · AI</p>
+    </div>
+
+    <!-- Sidebar — members list -->
+    <div class="col-span-1 bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4">
+            Members ({{ members.count }})
+        </h2>
+        <ul class="space-y-3">
+            {% for member in members %}
+            <li class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                <span class="text-sm">{{ member.username }}</span>
+                {% if member == room.created_by %}
+                    <span class="text-xs text-indigo-400">owner</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+</div>
+
+<script>
+function copyInvite(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        alert('Invite link copied! Share it with your collaborators.');
+    });
+}
+</script>
+{% endblock %}

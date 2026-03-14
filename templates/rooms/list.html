@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}My Rooms — LuminPrompt{% endblock %}
+
+{% block main_class %}max-w-4xl mx-auto mt-12 px-4{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-indigo-400">My Rooms</h1>
+    <a href="{% url 'room_create' %}"
+       class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+        + New Room
+    </a>
+</div>
+
+<!-- Rooms you created -->
+{% if created_rooms %}
+<section class="mb-10">
+    <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4">Created by you</h2>
+    <div class="grid gap-4">
+        {% for room in created_rooms %}
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 flex justify-between items-center hover:border-indigo-700 transition">
+            <div>
+                <h3 class="font-semibold text-lg">{{ room.name }}</h3>
+                {% if room.description %}
+                    <p class="text-gray-400 text-sm mt-1">{{ room.description }}</p>
+                {% endif %}
+                <p class="text-gray-600 text-xs mt-2">
+                    {{ room.members.count }} member{{ room.members.count|pluralize }}
+                    · Created {{ room.created_at|timesince }} ago
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <!-- Invite link copy button -->
+                <button
+                    onclick="copyInvite('{{ request.scheme }}://{{ request.get_host }}{% url 'room_join' room.slug %}')"
+                    class="text-xs text-gray-400 hover:text-indigo-400 border border-gray-700 px-3 py-1 rounded-lg transition">
+                    📋 Copy Invite
+                </button>
+                <a href="{% url 'room_detail' room.slug %}"
+                   class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-1 rounded-lg transition">
+                    Enter →
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Rooms you joined -->
+{% if joined_rooms %}
+<section>
+    <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4">Joined rooms</h2>
+    <div class="grid gap-4">
+        {% for room in joined_rooms %}
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 flex justify-between items-center hover:border-indigo-700 transition">
+            <div>
+                <h3 class="font-semibold text-lg">{{ room.name }}</h3>
+                {% if room.description %}
+                    <p class="text-gray-400 text-sm mt-1">{{ room.description }}</p>
+                {% endif %}
+                <p class="text-gray-600 text-xs mt-2">
+                    Created by {{ room.created_by.username }}
+                    · {{ room.members.count }} member{{ room.members.count|pluralize }}
+                </p>
+            </div>
+            <a href="{% url 'room_detail' room.slug %}"
+               class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-1 rounded-lg transition">
+                Enter →
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if not created_rooms and not joined_rooms %}
+<div class="text-center mt-24">
+    <p class="text-gray-500 text-lg">No rooms yet.</p>
+    <a href="{% url 'room_create' %}"
+       class="mt-4 inline-block bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg transition">
+        Create your first room
+    </a>
+</div>
+{% endif %}
+
+<script>
+function copyInvite(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        alert('Invite link copied!');
+    });
+}
+</script>
+{% endblock %}
