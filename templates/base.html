@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LuminPrompt{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center">
+        <a href="/" class="text-xl font-bold text-indigo-400">⚡ LuminPrompt</a>
+        <div class="flex gap-4 text-sm">
+            {% if user.is_authenticated %}
+                <span class="text-gray-400">{{ user.username }}</span>
+                <a href="{% url 'logout' %}" class="text-red-400 hover:text-red-300">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="text-indigo-400 hover:text-indigo-300">Login</a>
+                <a href="{% url 'register' %}" class="text-indigo-400 hover:text-indigo-300">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Messages -->
+    {% if messages %}
+        <div class="max-w-md mx-auto mt-4 space-y-2">
+            {% for message in messages %}
+                <div class="px-4 py-3 rounded text-sm
+                    {% if message.tags == 'success' %}bg-green-900 text-green-300
+                    {% elif message.tags == 'error' %}bg-red-900 text-red-300
+                    {% else %}bg-blue-900 text-blue-300{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Page content -->
+    <main class="{% block main_class %}max-w-md mx-auto mt-16 px-4{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+
+</body>
+</html>
