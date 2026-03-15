@@ -58,5 +58,23 @@ function copyInvite(url) {
         alert('Invite link copied! Share it with your collaborators.');
     });
 }
+
+const roomSlug = '{{ room.slug }}';
+const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+
+const socket = new WebSocket(`${wsScheme}://${window.location.host}/ws/rooms/${roomSlug}/`);
+socket.onopen = function(e) {
+    console.log("WebSocket connection established.");
+};
+socket.onclose = function(e) {
+    console.log("WebSocket connection closed.");
+};
+socket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    console.log("Received message:", data);
+};
+socket.onerror = function(e) {
+    console.error("WebSocket error:", e);
+};
 </script>
 {% endblock %}
