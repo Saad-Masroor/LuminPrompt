@@ -13,6 +13,8 @@ DEBUG = env.bool('DEBUG', default=False)
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -51,8 +53,17 @@ TEMPLATES = [
         },
     },
 ]
+# Django Channels
+ASGI_APPLICATION = 'config.asgi.application'
 
-WSGI_APPLICATION = 'config.wsgi.application'
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
 
 DATABASES = {
     'default': dj_database_url.config(
