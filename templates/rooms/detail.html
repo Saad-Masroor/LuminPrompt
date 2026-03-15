@@ -26,20 +26,54 @@
 
 <div class="grid grid-cols-4 gap-6">
 
-    <!-- Main area — WebSockets/voice will live here in Step 4 -->
-    <div class="col-span-3 bg-gray-900 border border-gray-800 rounded-xl p-6 min-h-96 flex flex-col items-center justify-center">
-        <p class="text-gray-600 text-sm">🎙️ Voice collaboration coming in Step 4</p>
-        <p class="text-gray-700 text-xs mt-2">WebSockets · Voice · AI</p>
+    <!-- Main area — split into chat + transcript -->
+    <div class="col-span-3 flex flex-col gap-4">
+
+        <!-- Transcript panel -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-3">
+                🎙️ Live Transcript
+            </h2>
+            <div id="transcript-panel" class="space-y-2 min-h-24 max-h-48 overflow-y-auto">
+                <p class="text-gray-700 text-xs">Voice transcripts will appear here...</p>
+            </div>
+        </div>
+
+        <!-- Chat panel -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col">
+            <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-3">
+                💬 Chat
+            </h2>
+            <div id="chat-messages" class="space-y-2 min-h-48 max-h-64 overflow-y-auto mb-4">
+                <p class="text-gray-700 text-xs">Messages will appear here...</p>
+            </div>
+
+            <!-- Chat input -->
+            <div class="flex gap-2 mt-auto">
+                <input
+                    type="text"
+                    id="chat-input"
+                    placeholder="Type a message..."
+                    class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2
+                           text-gray-100 focus:outline-none focus:border-indigo-500 text-sm">
+                <button
+                    onclick="sendMessage()"
+                    class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2
+                           rounded-lg text-sm transition">
+                    Send
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Sidebar — members list -->
     <div class="col-span-1 bg-gray-900 border border-gray-800 rounded-xl p-4">
         <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4">
-            Members ({{ members.count }})
+            Members
         </h2>
-        <ul class="space-y-3">
+        <ul id="members-list" class="space-y-3">
             {% for member in members %}
-            <li class="flex items-center gap-2">
+            <li id="member-{{ member.username }}" class="flex items-center gap-2">
                 <div class="w-2 h-2 rounded-full bg-green-500"></div>
                 <span class="text-sm">{{ member.username }}</span>
                 {% if member == room.created_by %}
@@ -63,18 +97,88 @@ const roomSlug = '{{ room.slug }}';
 const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
 
 const socket = new WebSocket(`${wsScheme}://${window.location.host}/ws/rooms/${roomSlug}/`);
+
 socket.onopen = function(e) {
     console.log("WebSocket connection established.");
 };
+
 socket.onclose = function(e) {
     console.log("WebSocket connection closed.");
 };
+
 socket.onmessage = function(e) {
     const data = JSON.parse(e.data);
-    console.log("Received message:", data);
+
+    if (data.type === 'user_join') {
+        // Don't add if already in the list (prevents duplicate on self-connect)
+        if (document.getElementById(`member-${data.username}`)) return;
+
+        // Add to members list
+        const membersList = document.getElementById('members-list');
+        const newMember = document.createElement('li');
+        newMember.id = `member-${data.username}`;
+        newMember.className = 'flex items-center gap-2';
+        newMember.innerHTML = `
+            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+            <span class="text-sm">${data.username}</span>`;
+        membersList.appendChild(newMember);
+
+        // Show notification in chat
+        addNotification(`${data.username} joined the room`);
+
+    } else if (data.type === 'user_leave') {
+        // Remove from members list
+        const member = document.getElementById(`member-${data.username}`);
+        if (member) member.remove();
+
+        // Show notification in chat
+        addNotification(`${data.username} left the room`);
+
+    } else if (data.type === 'chat_message') {
+        const chatMessages = document.getElementById('chat-messages');
+        const newMessage = document.createElement('div');
+        newMessage.className = 'text-sm py-1';
+        newMessage.innerHTML = `<span class="text-indigo-400 font-medium">${data.username}</span>: ${data.message}`;
+        chatMessages.appendChild(newMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight; // auto-scroll
+
+    } else if (data.type === 'transcript') {
+        const transcriptPanel = document.getElementById('transcript-panel');
+        const newTranscript = document.createElement('div');
+        newTranscript.className = `text-sm py-1 ${data.is_final ? 'text-gray-300' : 'text-gray-500 italic'}`;
+        newTranscript.innerHTML = `<span class="text-indigo-400 font-medium">${data.username}</span>: ${data.text}`;
+        transcriptPanel.appendChild(newTranscript);
+        transcriptPanel.scrollTop = transcriptPanel.scrollHeight;
+    }
 };
+
 socket.onerror = function(e) {
     console.error("WebSocket error:", e);
 };
+
+// Helper — adds a subtle notification line to chat
+function addNotification(text) {
+    const chatMessages = document.getElementById('chat-messages');
+    const notification = document.createElement('div');
+    notification.className = 'text-gray-600 text-xs italic py-1';
+    notification.textContent = text;
+    chatMessages.appendChild(notification);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (message === '') return;
+    socket.send(JSON.stringify({
+        'type': 'chat_message',
+        'message': message,
+    }));
+    input.value = '';
+}
+
+document.getElementById('chat-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') sendMessage();
+});
 </script>
 {% endblock %}
