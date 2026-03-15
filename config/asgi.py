@@ -7,7 +7,6 @@ import rooms.routing
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
 
 application = ProtocolTypeRouter({
-    # 1. http → ???
     'http' : get_asgi_application(),
     'websocket': AuthMiddlewareStack(
         URLRouter(
