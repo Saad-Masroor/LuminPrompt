@@ -4,7 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Room, RoomMembership
 from .forms import RoomCreateForm
-
+from rest_framework import viewsets, permissions
+from rest_framework.response import Response
+from .serializers import RoomSerializer
 
 @login_required
 def rooms_list_view(request):
@@ -90,3 +92,12 @@ def room_join_view(request, slug):
 
     messages.success(request, f'You joined "{room.name}"!')
     return redirect('room_detail', slug=room.slug)
+
+class RoomViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        rooms = Room.objects.filter(members=request.user)
+
+        serializer = RoomSerializer(rooms, many= True, context = {'request':request})
+        return Response(serializer.data)
