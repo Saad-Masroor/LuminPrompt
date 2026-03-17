@@ -70,7 +70,57 @@ class RoomConsumer(AsyncWebsocketConsumer):
                     'is_final': data.get('is_final', False)
                 }
             )
-       
+        elif message_type == 'send_to_ai':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'ai_thinking',
+                    'username': self.user.username,
+                    'transcript': data.get('transcript', [])
+                }
+            )
+        elif message_type == 'start_recording':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'recording_started',
+                    'username': self.user.username,
+                    'timestamp': data.get('timestamp'),
+                    'recording_id': data.get('recording_id'),
+                    'is_recording': True
+                }
+            )
+        elif message_type == 'stop_recording':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'recording_stopped',
+                    'username': self.user.username,
+                    'timestamp': data.get('timestamp'),
+                    'recording_id': data.get('recording_id'),
+                    'is_recording': False
+                }
+            )
+    async def recording_started(self, event):
+        # Send recording started message to WebSocket
+        await self.send(text_data=json.dumps({
+            'type': 'recording_started',
+            'username': event['username'],
+            'timestamp': event['timestamp'],
+            'recording_id': event['recording_id'],
+            'is_recording': event['is_recording']
+        }))
+
+    async def recording_stopped(self, event):
+        # Send recording stopped message to WebSocket
+        await self.send(text_data=json.dumps({
+            'type': 'recording_stopped',
+            'username': event['username'],
+            'timestamp': event['timestamp'],
+            'recording_id': event['recording_id'],
+            'is_recording': event['is_recording']
+        }))
+
     async def chat_message(self, event):
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
@@ -100,4 +150,12 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'text': event['text'],
             'username': event['username'],
             'is_final': event['is_final']
+        }))
+
+    async def ai_thinking(self, event):
+        # Send AI thinking message to WebSocket
+        await self.send(text_data=json.dumps({
+            'type': 'ai_thinking',
+            'username': event['username'],
+            'transcript': event['transcript']
         }))
