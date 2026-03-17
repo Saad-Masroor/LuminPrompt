@@ -3,7 +3,6 @@ import uuid
 from django.db import models
 from django.conf import settings
 
-
 class Room(models.Model):
     """
     A collaborative room where users work on AI prompts together.
@@ -24,6 +23,7 @@ class Room(models.Model):
     members     = models.ManyToManyField(
                     settings.AUTH_USER_MODEL,
                     related_name='joined_rooms',
+                    through='RoomMembership',
                     blank=True
                   )
     is_active   = models.BooleanField(default=True)
@@ -37,3 +37,36 @@ class Room(models.Model):
 
     def get_absolute_url(self):
         return f'/rooms/{self.slug}/'
+
+class RoomMembership(models.Model):
+    ROLE_CHOICES = [
+        ('owner', 'Owner'),
+        ('member', 'Member')
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete= models.CASCADE,
+        related_name= 'memberships'
+    )
+
+    room = models.ForeignKey(
+        'Room',
+        on_delete= models.CASCADE,
+        related_name= 'memberships'
+    )
+
+    role = models.CharField(
+        max_length= 10,
+        choices= ROLE_CHOICES,
+        default='member'
+    )
+
+    joined_at = models.DateTimeField(auto_now_add=True)
+    is_muted = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('user', 'room')
+
+    def __str__(self):
+        return f'{self.user.username} in {self.room.name} as {self.role}'

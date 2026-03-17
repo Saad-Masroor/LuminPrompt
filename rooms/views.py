@@ -2,7 +2,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Room
+from .models import Room, RoomMembership
 from .forms import RoomCreateForm
 
 
@@ -31,7 +31,11 @@ def room_create_view(request):
             room = form.save(commit=False)
             room.created_by = request.user
             room.save()
-            room.members.add(request.user)  # creator auto-joins
+            RoomMembership.objects.create(
+                user= request.user,
+                room= room,
+                role= 'owner'
+            )
             messages.success(request, f'Room "{room.name}" created!')
             return redirect('room_detail', slug=room.slug)
     else:
@@ -49,15 +53,17 @@ def room_detail_view(request, slug):
     """
     room = get_object_or_404(Room, slug=slug, is_active=True)
 
+    membership = RoomMembership.objects.filter(user=request.user, room=room).first()
     # Only members can view the room
-    if request.user not in room.members.all():
+    if not membership:
         messages.error(request, 'You are not a member of this room.')
         return redirect('rooms_list')
 
     return render(request, 'rooms/detail.html', {
         'room': room,
         'members': room.members.all(),
-        'is_owner': request.user == room.created_by,
+        'is_owner': membership.role == 'owner',
+        'membership': membership
     })
 
 
@@ -69,10 +75,18 @@ def room_join_view(request, slug):
     """
     room = get_object_or_404(Room, slug=slug, is_active=True)
 
-    if request.user in room.members.all():
+    membership = RoomMembership.objects.filter(user=request.user, room=room).first()
+
+    if membership:
         # Already a member — just go to the room
         return redirect('room_detail', slug=room.slug)
 
-    room.members.add(request.user)
+    # Join as member
+    RoomMembership.objects.create(
+        user=request.user,
+        room=room,
+        role='member'
+    )
+
     messages.success(request, f'You joined "{room.name}"!')
     return redirect('room_detail', slug=room.slug)
