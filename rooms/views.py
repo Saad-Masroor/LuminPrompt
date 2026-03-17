@@ -57,6 +57,7 @@ def room_detail_view(request, slug):
     return render(request, 'rooms/detail.html', {
         'room': room,
         'members': room.members.all(),
+        'is_owner': request.user == room.created_by,
     })
 
 
