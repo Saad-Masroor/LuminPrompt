@@ -1,16 +1,15 @@
 {% extends "base.html" %}
-
 {% block title %}Register — LuminPrompt{% endblock %}
 
 {% block content %}
-<div class="bg-gray-900 rounded-xl p-8 border border-gray-800">
-    <h1 class="text-2xl font-bold mb-6 text-indigo-400">Create Account</h1>
+<div class="rounded-xl p-8 border" style="background: var(--panel); border-color: var(--panel-border);">
+    <h1 class="font-display text-2xl font-semibold mb-6">Create an account</h1>
 
     <form method="post" class="space-y-4">
         {% csrf_token %}
         {% for field in form %}
             <div>
-                <label class="block text-sm text-gray-400 mb-1">
+                <label class="block text-sm mb-1.5" style="color: var(--text-muted);">
                     {{ field.label }}
                 </label>
                 <input
@@ -18,27 +17,27 @@
                     name="{{ field.html_name }}"
                     id="{{ field.id_for_label }}"
                     {% if field.value %}value="{{ field.value }}"{% endif %}
-                    class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2
-                           text-gray-100 focus:outline-none focus:border-indigo-500"
+                    class="w-full rounded-lg px-4 py-2.5 border transition focus:outline-none"
+                    style="background: var(--bg); border-color: var(--panel-border); color: var(--text);"
+                    onfocus="this.style.borderColor='var(--cyan)'"
+                    onblur="this.style.borderColor='var(--panel-border)'"
                 >
-                {% if field.errors %}
-                    {% for error in field.errors %}
-                        <p class="text-red-400 text-xs mt-1">{{ error }}</p>
-                    {% endfor %}
-                {% endif %}
+                {% for error in field.errors %}
+                    <p class="text-xs mt-1" style="color: var(--danger);">{{ error }}</p>
+                {% endfor %}
             </div>
         {% endfor %}
 
         <button type="submit"
-            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold
-                   py-2 rounded-lg transition">
-            Create Account
+            class="w-full font-medium py-2.5 rounded-lg transition hover:opacity-90"
+            style="background: var(--cyan); color: #0A1F1C;">
+            Create account
         </button>
     </form>
 
-    <p class="text-center text-gray-500 text-sm mt-4">
+    <p class="text-center text-sm mt-5" style="color: var(--text-muted);">
         Already have an account?
-        <a href="{% url 'login' %}" class="text-indigo-400 hover:underline">Login</a>
+        <a href="{% url 'login' %}" style="color: var(--amber);" class="hover:underline">Log in</a>
     </p>
 </div>
 {% endblock %}

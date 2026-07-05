@@ -5,31 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}LuminPrompt{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0F1116;
+            --panel: #171A21;
+            --panel-border: #262B35;
+            --text: #E7E9ED;
+            --text-muted: #838B99;
+            --amber: #E8A33D;
+            --amber-dim: #4A3A20;
+            --cyan: #4DD8C7;
+            --cyan-dim: #1E3D39;
+            --danger: #E8544D;
+        }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .font-mono { font-family: 'IBM Plex Mono', monospace; }
+
+        /* Blinking terminal cursor — the AI response's signature element */
+        .cursor-blink::after {
+            content: '▌';
+            color: var(--cyan);
+            animation: blink 1s step-start infinite;
+            margin-left: 2px;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Waveform bars used as the logo mark and loading indicator */
+        .waveform-bar { animation: wave 1.1s ease-in-out infinite; transform-origin: bottom; }
+        .waveform-bar:nth-child(2) { animation-delay: 0.15s; }
+        .waveform-bar:nth-child(3) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(4) { animation-delay: 0.45s; }
+        @keyframes wave {
+            0%, 100% { transform: scaleY(0.4); }
+            50% { transform: scaleY(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .cursor-blink::after { animation: none; }
+            .waveform-bar { animation: none; }
+        }
+    </style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
+<body class="min-h-screen">
 
     <!-- Navbar -->
-    <nav class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center">
-        <a href="/" class="text-xl font-bold text-indigo-400">⚡ LuminPrompt</a>
-        <div class="flex gap-4 text-sm">
+    <nav class="border-b px-6 py-4 flex justify-between items-center" style="border-color: var(--panel-border);">
+        <a href="/" class="flex items-center gap-2.5">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect class="waveform-bar" x="1" y="6" width="3" height="8" rx="1" fill="var(--amber)"/>
+                <rect class="waveform-bar" x="6" y="2" width="3" height="16" rx="1" fill="var(--amber)"/>
+                <rect class="waveform-bar" x="11" y="8" width="3" height="4" rx="1" fill="var(--cyan)"/>
+                <rect class="waveform-bar" x="16" y="4" width="3" height="12" rx="1" fill="var(--cyan)"/>
+            </svg>
+            <span class="font-display font-semibold text-lg tracking-tight">LuminPrompt</span>
+        </a>
+        <div class="flex items-center gap-5 text-sm">
             {% if user.is_authenticated %}
-                <span class="text-gray-400">{{ user.username }}</span>
-                <a href="{% url 'logout' %}" class="text-red-400 hover:text-red-300">Logout</a>
+                <span style="color: var(--text-muted);" class="font-mono text-xs">{{ user.username }}</span>
+                <a href="{% url 'logout' %}" class="hover:opacity-80 transition" style="color: var(--danger);">Log out</a>
             {% else %}
-                <a href="{% url 'login' %}" class="text-indigo-400 hover:text-indigo-300">Login</a>
-                <a href="{% url 'register' %}" class="text-indigo-400 hover:text-indigo-300">Register</a>
+                <a href="{% url 'login' %}" class="hover:opacity-80 transition" style="color: var(--amber);">Log in</a>
+                <a href="{% url 'register' %}" class="hover:opacity-80 transition" style="color: var(--cyan);">Register</a>
             {% endif %}
         </div>
     </nav>
 
     <!-- Messages -->
     {% if messages %}
-        <div class="max-w-md mx-auto mt-4 space-y-2">
+        <div class="max-w-md mx-auto mt-4 space-y-2 px-4">
             {% for message in messages %}
-                <div class="px-4 py-3 rounded text-sm
-                    {% if message.tags == 'success' %}bg-green-900 text-green-300
-                    {% elif message.tags == 'error' %}bg-red-900 text-red-300
-                    {% else %}bg-blue-900 text-blue-300{% endif %}">
+                <div class="px-4 py-3 rounded-lg text-sm border font-mono
+                    {% if message.tags == 'success' %}border-[#2F6B4F] bg-[#12241A] text-[#6FCF97]
+                    {% elif message.tags == 'error' %}border-[#6B2F2F] bg-[#241212] text-[#E8544D]
+                    {% else %}border-[#2F4A6B] bg-[#121D24] text-[#6FA8DC]{% endif %}">
                     {{ message }}
                 </div>
             {% endfor %}

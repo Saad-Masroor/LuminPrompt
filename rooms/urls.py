@@ -7,4 +7,6 @@ urlpatterns = [
     path('create/', views.room_create_view, name='room_create'),
     path('<uuid:slug>/', views.room_detail_view, name='room_detail'),
     path('<uuid:slug>/join/', views.room_join_view, name='room_join'),
+    path('<uuid:slug>/leave/', views.room_leave_view, name='room_leave'),
+    path('kicked-notice/', views.room_kicked_notice, name='room_kicked_notice'),
 ]

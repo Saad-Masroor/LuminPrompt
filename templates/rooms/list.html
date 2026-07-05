@@ -5,39 +5,60 @@
 
 {% block content %}
 <div class="flex justify-between items-center mb-8">
-    <h1 class="text-3xl font-bold text-indigo-400">My Rooms</h1>
+    <h1 class="font-display text-3xl font-semibold tracking-tight">My Rooms</h1>
     <a href="{% url 'room_create' %}"
-       class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+       class="px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+       style="background: var(--amber); color: #14110A;">
         + New Room
     </a>
 </div>
 
-<!-- Rooms you created -->
 {% if created_rooms %}
 <section class="mb-10">
-    <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4">Created by you</h2>
+    <h2 class="text-xs uppercase tracking-widest font-mono mb-4" style="color: var(--amber);">Created by you</h2>
     <div class="grid gap-4">
         {% for room in created_rooms %}
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 flex justify-between items-center hover:border-indigo-700 transition">
-            <div>
-                <h3 class="font-semibold text-lg">{{ room.name }}</h3>
+        <div class="rounded-xl p-5 flex justify-between items-center transition"
+             style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--amber);">
+            <div class="flex-1">
+                <h3 class="font-display font-semibold text-lg">{{ room.name }}</h3>
                 {% if room.description %}
-                    <p class="text-gray-400 text-sm mt-1">{{ room.description }}</p>
+                    <p style="color: var(--text-muted);" class="text-sm mt-1">{{ room.description }}</p>
                 {% endif %}
-                <p class="text-gray-600 text-xs mt-2">
-                    {{ room.members.count }} member{{ room.members.count|pluralize }}
-                    · Created {{ room.created_at|timesince }} ago
-                </p>
+
+                <!-- Member avatars: real membership, not live presence.
+                     See a room itself for who's actually connected right now. -->
+                <div class="flex items-center gap-2 mt-3">
+                    <div class="flex -space-x-2">
+                        {% for member in room.members.all|slice:":5" %}
+                            <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-medium"
+                                 style="background: var(--amber-dim); color: var(--amber); border: 2px solid var(--panel);"
+                                 title="{{ member.username }}">
+                                {{ member.username|slice:":1"|upper }}
+                            </div>
+                        {% endfor %}
+                        {% if room.members.count > 5 %}
+                            <div class="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-mono"
+                                 style="background: var(--bg); color: var(--text-muted); border: 2px solid var(--panel);">
+                                +{{ room.members.count|add:"-5" }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs font-mono" style="color: var(--text-muted);">
+                        {{ room.members.count }} member{{ room.members.count|pluralize }} · created {{ room.created_at|timesince }} ago
+                    </p>
+                </div>
             </div>
-            <div class="flex gap-3">
-                <!-- Invite link copy button -->
+            <div class="flex gap-3 items-center">
                 <button
                     onclick="copyInvite('{{ request.scheme }}://{{ request.get_host }}{% url 'room_join' room.slug %}')"
-                    class="text-xs text-gray-400 hover:text-indigo-400 border border-gray-700 px-3 py-1 rounded-lg transition">
-                    📋 Copy Invite
+                    class="text-xs px-3 py-1.5 rounded-lg border transition hover:opacity-80"
+                    style="border-color: var(--panel-border); color: var(--text-muted);">
+                    Copy invite
                 </button>
                 <a href="{% url 'room_detail' room.slug %}"
-                   class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-1 rounded-lg transition">
+                   class="text-sm px-4 py-1.5 rounded-lg font-medium transition hover:opacity-90"
+                   style="background: var(--amber); color: #14110A;">
                     Enter →
                 </a>
             </div>
@@ -47,25 +68,42 @@
 </section>
 {% endif %}
 
-<!-- Rooms you joined -->
 {% if joined_rooms %}
 <section>
-    <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4">Joined rooms</h2>
+    <h2 class="text-xs uppercase tracking-widest font-mono mb-4" style="color: var(--text-muted);">Joined rooms</h2>
     <div class="grid gap-4">
         {% for room in joined_rooms %}
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 flex justify-between items-center hover:border-indigo-700 transition">
-            <div>
-                <h3 class="font-semibold text-lg">{{ room.name }}</h3>
+        <div class="rounded-xl p-5 flex justify-between items-center transition"
+             style="background: var(--panel); border: 1px solid var(--panel-border);">
+            <div class="flex-1">
+                <h3 class="font-display font-semibold text-lg">{{ room.name }}</h3>
                 {% if room.description %}
-                    <p class="text-gray-400 text-sm mt-1">{{ room.description }}</p>
+                    <p style="color: var(--text-muted);" class="text-sm mt-1">{{ room.description }}</p>
                 {% endif %}
-                <p class="text-gray-600 text-xs mt-2">
-                    Created by {{ room.created_by.username }}
-                    · {{ room.members.count }} member{{ room.members.count|pluralize }}
-                </p>
+                <div class="flex items-center gap-2 mt-3">
+                    <div class="flex -space-x-2">
+                        {% for member in room.members.all|slice:":5" %}
+                            <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-medium"
+                                 style="background: var(--cyan-dim); color: var(--cyan); border: 2px solid var(--panel);"
+                                 title="{{ member.username }}">
+                                {{ member.username|slice:":1"|upper }}
+                            </div>
+                        {% endfor %}
+                        {% if room.members.count > 5 %}
+                            <div class="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-mono"
+                                 style="background: var(--bg); color: var(--text-muted); border: 2px solid var(--panel);">
+                                +{{ room.members.count|add:"-5" }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs font-mono" style="color: var(--text-muted);">
+                        Created by {{ room.created_by.username }} · {{ room.members.count }} member{{ room.members.count|pluralize }}
+                    </p>
+                </div>
             </div>
             <a href="{% url 'room_detail' room.slug %}"
-               class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-1 rounded-lg transition">
+               class="text-sm px-4 py-1.5 rounded-lg border font-medium transition hover:opacity-80"
+               style="border-color: var(--panel-border); color: var(--text);">
                 Enter →
             </a>
         </div>
@@ -76,9 +114,16 @@
 
 {% if not created_rooms and not joined_rooms %}
 <div class="text-center mt-24">
-    <p class="text-gray-500 text-lg">No rooms yet.</p>
+    <div class="flex justify-center gap-1.5 mb-6">
+        <div class="waveform-bar w-2 h-6 rounded-full" style="background: var(--amber);"></div>
+        <div class="waveform-bar w-2 h-10 rounded-full" style="background: var(--amber);"></div>
+        <div class="waveform-bar w-2 h-5 rounded-full" style="background: var(--cyan);"></div>
+        <div class="waveform-bar w-2 h-8 rounded-full" style="background: var(--cyan);"></div>
+    </div>
+    <p style="color: var(--text-muted);" class="text-lg">No rooms yet.</p>
     <a href="{% url 'room_create' %}"
-       class="mt-4 inline-block bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg transition">
+       class="mt-4 inline-block px-6 py-2 rounded-lg font-medium transition hover:opacity-90"
+       style="background: var(--amber); color: #14110A;">
         Create your first room
     </a>
 </div>

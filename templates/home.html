@@ -1,13 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Home — LuminPrompt{% endblock %}
+{% block title %}LuminPrompt{% endblock %}
+
+{% block main_class %}max-w-3xl mx-auto mt-16 px-4{% endblock %}
 
 {% block content %}
+<div class="text-center mb-10">
+    <div class="flex justify-center gap-1.5 mb-6">
+        <div class="waveform-bar w-2 h-8 rounded-full" style="background: var(--amber);"></div>
+        <div class="waveform-bar w-2 h-14 rounded-full" style="background: var(--amber);"></div>
+        <div class="waveform-bar w-2 h-6 rounded-full" style="background: var(--cyan);"></div>
+        <div class="waveform-bar w-2 h-12 rounded-full" style="background: var(--cyan);"></div>
+    </div>
+    <h1 class="font-display text-5xl font-semibold tracking-tight mb-4">LuminPrompt</h1>
+    <p style="color: var(--text-muted);" class="text-base max-w-lg mx-auto">
+        A room where people talk, it transcribes live, and an AI joins the conversation — streamed in, together, in real time.
+    </p>
+</div>
+
+<!-- The product itself, as the hero — same visual language as the real room page -->
+<div class="rounded-xl p-5 mb-8" style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--amber);">
+    <h2 class="text-xs uppercase tracking-widest font-mono mb-3" style="color: var(--amber);">Live transcript</h2>
+    <div class="font-mono text-sm space-y-1.5 mb-4">
+        <div><span style="color: var(--amber);">maria:</span> <span style="color: var(--text);">our Q3 signups dropped about twelve percent</span></div>
+        <div><span style="color: var(--amber);">devon:</span> <span style="color: var(--text);">right, but retention actually went up that same month</span></div>
+    </div>
+    <div class="rounded-lg p-4" style="background: var(--bg); border-top: 2px solid var(--cyan);">
+        <h3 class="text-xs uppercase tracking-widest font-mono mb-2" style="color: var(--cyan);">AI response</h3>
+        <p class="font-mono text-sm cursor-blink" style="color: var(--text);">
+            Worth framing Q3 as a quality-over-quantity shift — fewer signups, but the ones that stayed are sticking around longer.
+        </p>
+    </div>
+</div>
+
+<!-- The three-step flow — a real sequence, so numbering here actually encodes something -->
+<div class="grid grid-cols-3 gap-3 mb-10 text-center">
+    <div class="rounded-lg p-4" style="background: var(--panel); border: 1px solid var(--panel-border);">
+        <div class="text-xs font-mono mb-1" style="color: var(--amber);">01 · Speak</div>
+        <p class="text-xs" style="color: var(--text-muted);">Everyone in the room talks — no scripts, no turns.</p>
+    </div>
+    <div class="rounded-lg p-4" style="background: var(--panel); border: 1px solid var(--panel-border);">
+        <div class="text-xs font-mono mb-1" style="color: var(--text-muted);">02 · Transcribe</div>
+        <p class="text-xs" style="color: var(--text-muted);">Speech becomes shared, live text as it happens.</p>
+    </div>
+    <div class="rounded-lg p-4" style="background: var(--panel); border: 1px solid var(--panel-border);">
+        <div class="text-xs font-mono mb-1" style="color: var(--cyan);">03 · Ask AI</div>
+        <p class="text-xs" style="color: var(--text-muted);">Send the conversation to AI, watch the answer stream in.</p>
+    </div>
+</div>
+
 <div class="text-center">
-    <h1 class="text-4xl font-bold text-indigo-400 mb-4">⚡ LuminPrompt</h1>
-    <p class="text-gray-400 mb-8">Real-time AI voice collaboration</p>
     <a href="{% url 'rooms_list' %}"
-       class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-lg font-semibold transition">
-        Go to My Rooms →
+       class="inline-block font-medium px-8 py-3 rounded-lg transition hover:opacity-90"
+       style="background: var(--amber); color: #14110A;">
+        Go to my rooms →
     </a>
 </div>
 {% endblock %}

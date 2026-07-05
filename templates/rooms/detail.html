@@ -4,78 +4,99 @@
 {% block main_class %}max-w-6xl mx-auto mt-8 px-4{% endblock %}
 
 {% block content %}
-<div class="flex justify-between items-center mb-6">
+<div class="flex justify-between items-center mb-4">
     <div>
-        <h1 class="text-2xl font-bold text-indigo-400">{{ room.name }}</h1>
+        <h1 class="font-display text-2xl font-semibold tracking-tight">{{ room.name }}</h1>
         {% if room.description %}
-            <p class="text-gray-400 text-sm mt-1">{{ room.description }}</p>
+            <p style="color: var(--text-muted);" class="text-sm mt-1">{{ room.description }}</p>
         {% endif %}
     </div>
     <div class="flex gap-3">
         <button
             onclick="copyInvite('{{ request.scheme }}://{{ request.get_host }}{% url 'room_join' room.slug %}')"
-            class="text-sm text-gray-400 hover:text-indigo-400 border border-gray-700 px-4 py-2 rounded-lg transition">
-            📋 Copy Invite Link
+            class="text-sm px-4 py-2 rounded-lg border transition hover:opacity-80"
+            style="border-color: var(--panel-border); color: var(--text-muted);">
+            Copy invite link
         </button>
         <a href="{% url 'rooms_list' %}"
-           class="text-sm text-gray-400 hover:text-white border border-gray-700 px-4 py-2 rounded-lg transition">
+           class="text-sm px-4 py-2 rounded-lg border transition hover:opacity-80"
+           style="border-color: var(--panel-border); color: var(--text-muted);">
             ← Back
         </a>
     </div>
 </div>
 
+<div class="flex items-center gap-3 mb-6 rounded-xl px-4 py-3" style="background: var(--panel); border: 1px solid var(--panel-border);">
+    <button id="mic-btn" onclick="toggleMute()"
+        class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg border transition"
+        style="border-color: var(--panel-border); color: var(--text-muted);">
+        <span id="mic-icon">🎤</span> <span id="mic-label">Mic on</span>
+    </button>
+    <button id="deafen-btn" onclick="toggleDeafen()"
+        class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg border transition"
+        style="border-color: var(--panel-border); color: var(--text-muted);">
+        <span id="deafen-icon">🔊</span> <span id="deafen-label">Not deafened</span>
+    </button>
+    <a href="{% url 'room_leave' room.slug %}"
+       onclick="return confirm('Leave this room?')"
+       class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg transition ml-auto hover:opacity-90"
+       style="background: var(--danger); color: #1A0A08;">
+        Leave room
+    </a>
+</div>
+
 <div class="grid grid-cols-4 gap-6">
 
-    <div class="col-span-3 flex flex-col gap-6">
-        
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <div class="col-span-3 flex flex-col gap-6" id="main-panels">
+
+        <div class="rounded-xl p-4" style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--amber);">
             <div class="flex justify-between items-center mb-3">
-                <h2 class="text-sm uppercase tracking-widest text-gray-500">
-                    🎙️ Live Transcript
+                <h2 class="text-xs uppercase tracking-widest font-mono" style="color: var(--amber);">
+                    Live transcript
                 </h2>
-                <div id="recording-indicator" class="hidden flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                    <span class="text-red-400 text-xs font-bold">Recording for AI</span>
+                <div id="listening-indicator" class="hidden items-center gap-1.5">
+                    <div class="waveform-bar w-1 h-3 rounded-full" style="background: var(--amber);"></div>
+                    <div class="waveform-bar w-1 h-4 rounded-full" style="background: var(--amber);"></div>
+                    <div class="waveform-bar w-1 h-2 rounded-full" style="background: var(--amber);"></div>
                 </div>
             </div>
-            
-            <div id="transcript-panel" class="space-y-2 min-h-[150px] max-h-48 overflow-y-auto mb-4 border-b border-gray-800 pb-4">
-                <p class="text-gray-700 text-xs" id="transcript-placeholder">Voice transcripts will appear here...</p>
+
+            <div id="transcript-panel" class="space-y-2 min-h-[150px] max-h-48 overflow-y-auto mb-4 border-b pb-4 font-mono text-sm" style="border-color: var(--panel-border);">
+                {% for line in recent_transcript %}
+                    <div><span style="color: var(--amber);">{{ line.username }}:</span> <span style="color: var(--text);">{{ line.text }}</span></div>
+                {% empty %}
+                    <p class="text-xs" id="transcript-placeholder" style="color: var(--text-muted);">Nothing said yet. Turn your mic on and speak.</p>
+                {% endfor %}
             </div>
 
             <div class="flex gap-2 items-center">
-                <button id="voice-btn" onclick="toggleVoice()"
-                    class="text-xs bg-gray-800 border border-gray-700 text-gray-400 px-4 py-2 rounded-lg transition hover:bg-indigo-600 hover:text-white">
-                    🎙️ Start Listening
-                </button>
-
                 {% if is_owner %}
-                <button id="record-btn" onclick="toggleRecording()"
-                    class="text-xs bg-gray-800 border border-gray-700 text-gray-400 px-4 py-2 rounded-lg transition hover:bg-red-600 hover:text-white">
-                    🔴 Start Recording
-                </button>
                 <button id="send-ai-btn" onclick="sendToAi()"
-                    class="hidden text-xs bg-indigo-600 text-white px-4 py-2 rounded-lg transition hover:bg-indigo-500">
-                    ✨ Send to AI
+                    class="text-xs font-mono px-4 py-2 rounded-lg transition hover:opacity-90"
+                    style="background: var(--cyan); color: #0A1F1C;">
+                    Send to AI
                 </button>
                 {% endif %}
             </div>
         </div>
 
-        <div id="ai-response-panel" class="hidden bg-gray-900 border border-indigo-800 rounded-xl p-4 shadow-lg shadow-indigo-900/10">
-            <h2 class="text-sm uppercase tracking-widest text-indigo-400 mb-3 flex items-center gap-2">
-                <span>🤖</span> AI Response
+        <div id="ai-response-panel" class="hidden rounded-xl p-4" style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--cyan);">
+            <h2 class="text-xs uppercase tracking-widest font-mono mb-3" style="color: var(--cyan);">
+                AI response
             </h2>
-            <div id="ai-response-content" class="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
-                </div>
+            <div id="ai-response-content" class="text-sm leading-relaxed whitespace-pre-wrap font-mono" style="color: var(--text);"></div>
         </div>
 
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col h-full">
-            <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-3">
-                💬 Chat
+        <div class="rounded-xl p-4 border flex flex-col h-full" style="background: var(--panel); border-color: var(--panel-border);">
+            <h2 class="text-xs uppercase tracking-widest font-mono mb-3" style="color: var(--text-muted);">
+                Chat
             </h2>
-            <div id="chat-messages" class="space-y-2 min-h-[200px] max-h-80 overflow-y-auto mb-4">
-                <p class="text-gray-700 text-xs">Messages will appear here...</p>
+            <div id="chat-messages" class="space-y-2 min-h-[200px] max-h-80 overflow-y-auto mb-4 text-sm">
+                {% for msg in recent_chat %}
+                    <div class="py-1"><span style="color: var(--amber); font-weight: 500;">{{ msg.sender.username }}</span>: <span style="color: var(--text);">{{ msg.message }}</span></div>
+                {% empty %}
+                    <p class="text-xs" style="color: var(--text-muted);">Messages will appear here.</p>
+                {% endfor %}
             </div>
 
             <div class="flex gap-2">
@@ -83,10 +104,14 @@
                     type="text"
                     id="chat-input"
                     placeholder="Type a message..."
-                    class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:border-indigo-500 text-sm">
+                    class="flex-1 rounded-lg px-4 py-2 border text-sm focus:outline-none transition"
+                    style="background: var(--bg); border-color: var(--panel-border); color: var(--text);"
+                    onfocus="this.style.borderColor='var(--amber)'"
+                    onblur="this.style.borderColor='var(--panel-border)'">
                 <button
                     onclick="sendMessage()"
-                    class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition">
+                    class="px-6 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+                    style="background: var(--amber); color: #14110A;">
                     Send
                 </button>
             </div>
@@ -94,17 +119,28 @@
     </div>
 
     <div class="col-span-1">
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 sticky top-8">
-            <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4">
+        <div class="rounded-xl p-4 border sticky top-8" style="background: var(--panel); border-color: var(--panel-border);">
+            <h2 class="text-xs uppercase tracking-widest font-mono mb-4" style="color: var(--text-muted);">
                 Members
             </h2>
             <ul id="members-list" class="space-y-3">
                 {% for member in members %}
-                <li id="member-{{ member.username }}" class="flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span class="text-sm text-gray-300">{{ member.username }}</span>
-                    {% if member == room.created_by %}
-                        <span class="text-[10px] uppercase px-1.5 py-0.5 rounded border border-indigo-500/30 text-indigo-400 font-bold">owner</span>
+                <li id="member-{{ member.username }}" class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full" style="background: #6FCF97;"></div>
+                        <span class="text-sm">{{ member.username }}</span>
+                        {% if member == room.created_by %}
+                            <span class="text-[10px] uppercase px-1.5 py-0.5 rounded border font-mono"
+                                  style="border-color: var(--amber-dim); color: var(--amber);">owner</span>
+                        {% endif %}
+                        <span id="status-badge-{{ member.username }}" class="text-xs"></span>
+                    </div>
+                    {% if is_owner and member != room.created_by %}
+                        <button onclick="kickMember('{{ member.username }}')"
+                            class="text-xs font-mono px-2 py-0.5 rounded transition hover:opacity-80"
+                            style="color: var(--danger);" title="Remove from room">
+                            remove
+                        </button>
                     {% endif %}
                 </li>
                 {% endfor %}
@@ -113,19 +149,21 @@
     </div>
 </div>
 
-<script>
-    // ─── State Management ─────────────────────────
-    const isOwner = {{ is_owner|yesno:"true,false" }};
-    let isSpeaking = false;
-    let isRecording = false;
-    let recordedTranscript = [];
-    let recognition = null;
+{{ recent_transcript|json_script:"transcript-data" }}
 
-    // ─── Voice Recognition ────────────────────────
+<script>
+    const isOwner = {{ is_owner|yesno:"true,false" }};
+    const myUsername = '{{ request.user.username }}';
+    let isSpeaking = false;
+    let isMuted = false;
+    let isDeafened = false;
+    let recognition = null;
+    let fullTranscriptLog = JSON.parse(document.getElementById('transcript-data').textContent);
+
     function initVoice() {
         if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-            document.getElementById('voice-btn').disabled = true;
-            document.getElementById('voice-btn').textContent = '🎙️ Not supported';
+            document.getElementById('mic-btn').disabled = true;
+            document.getElementById('mic-label').textContent = 'Not supported';
             return;
         }
 
@@ -138,27 +176,13 @@
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const text = event.results[i][0].transcript.trim();
                 const isFinal = event.results[i].isFinal;
-
                 if (text.length === 0) continue;
-
-                socket.send(JSON.stringify({
-                    type: 'transcript',
-                    text: text,
-                    is_final: isFinal,
-                }));
-
-                if (isFinal && isRecording) {
-                    recordedTranscript.push({
-                        username: '{{ request.user.username }}',
-                        text: text,
-                    });
-                }
+                socket.send(JSON.stringify({ type: 'transcript', text: text, is_final: isFinal }));
             }
         };
 
         recognition.onerror = function(event) {
             console.error("Speech recognition error:", event.error);
-            stopVoiceUI();
         };
 
         recognition.onend = function() {
@@ -166,77 +190,103 @@
         };
     }
 
-    function toggleVoice() {
-        if (!recognition) return;
-        const btn = document.getElementById('voice-btn');
-        
-        if (isSpeaking) {
-            recognition.stop();
-            isSpeaking = false;
-            stopVoiceUI();
+    function startListening() {
+        if (!recognition || isSpeaking) return;
+        recognition.start();
+        isSpeaking = true;
+        document.getElementById('listening-indicator').classList.remove('hidden');
+        document.getElementById('listening-indicator').classList.add('flex');
+    }
+
+    function stopListening() {
+        if (!recognition || !isSpeaking) return;
+        recognition.stop();
+        isSpeaking = false;
+        document.getElementById('listening-indicator').classList.add('hidden');
+        document.getElementById('listening-indicator').classList.remove('flex');
+    }
+
+    function broadcastStatus() {
+        socket.send(JSON.stringify({ type: 'set_status', muted: isMuted, deafened: isDeafened }));
+    }
+
+    function toggleMute() {
+        isMuted = !isMuted;
+        const btn = document.getElementById('mic-btn');
+        if (isMuted) {
+            stopListening();
+            btn.querySelector('#mic-icon').textContent = '🔇';
+            btn.querySelector('#mic-label').textContent = 'Mic off';
+            btn.style.borderColor = 'var(--danger)';
+            btn.style.color = 'var(--danger)';
         } else {
-            recognition.start();
-            isSpeaking = true;
-            btn.textContent = '⏹️ Stop Listening';
-            btn.classList.replace('bg-gray-800', 'bg-red-600');
-            btn.classList.replace('text-gray-400', 'text-white');
+            startListening();
+            btn.querySelector('#mic-icon').textContent = '🎤';
+            btn.querySelector('#mic-label').textContent = 'Mic on';
+            btn.style.borderColor = 'var(--panel-border)';
+            btn.style.color = 'var(--text-muted)';
         }
+        broadcastStatus();
     }
 
-    function stopVoiceUI() {
-        const btn = document.getElementById('voice-btn');
-        btn.textContent = '🎙️ Start Listening';
-        btn.classList.replace('bg-red-600', 'bg-gray-800');
-        btn.classList.replace('text-white', 'text-gray-400');
-    }
+    function toggleDeafen() {
+        isDeafened = !isDeafened;
+        const btn = document.getElementById('deafen-btn');
+        const panels = document.getElementById('main-panels');
 
-    // ─── Recording Logic ──────────────────────────
-    function toggleRecording() {
-        const recordBtn = document.getElementById('record-btn');
-        const sendBtn = document.getElementById('send-ai-btn');
-        const indicator = document.getElementById('recording-indicator');
-
-        if (isRecording) {
-            isRecording = false;
-            recordBtn.textContent = '🔴 Start Recording';
-            recordBtn.classList.remove('bg-red-600', 'text-white');
-            indicator.classList.add('hidden');
-            if (recordedTranscript.length > 0) sendBtn.classList.remove('hidden');
+        if (isDeafened) {
+            if (!isMuted) toggleMute();
+            panels.style.opacity = '0.4';
+            panels.style.pointerEvents = 'none';
+            btn.querySelector('#deafen-icon').textContent = '🔇';
+            btn.querySelector('#deafen-label').textContent = 'Deafened';
+            btn.style.borderColor = 'var(--danger)';
+            btn.style.color = 'var(--danger)';
         } else {
-            isRecording = true;
-            recordedTranscript = []; // clear previous
-            recordBtn.textContent = '⏹️ Stop Recording';
-            recordBtn.classList.add('bg-red-600', 'text-white');
-            indicator.classList.remove('hidden');
-            sendBtn.classList.add('hidden');
-            
-            // Auto-start voice if not already on
-            if (!isSpeaking) toggleVoice();
+            panels.style.opacity = '1';
+            panels.style.pointerEvents = 'auto';
+            btn.querySelector('#deafen-icon').textContent = '🔊';
+            btn.querySelector('#deafen-label').textContent = 'Not deafened';
+            btn.style.borderColor = 'var(--panel-border)';
+            btn.style.color = 'var(--text-muted)';
+        }
+        broadcastStatus();
+    }
+
+    function kickMember(username) {
+        if (!confirm(`Remove ${username} from this room?`)) return;
+        socket.send(JSON.stringify({ type: 'kick_member', target_username: username }));
+    }
+
+    function updateStatusBadge(username, muted, deafened) {
+        const badge = document.getElementById(`status-badge-${username}`);
+        if (!badge) return;
+        if (deafened) {
+            badge.textContent = '🔇 deafened';
+            badge.style.color = 'var(--danger)';
+        } else if (muted) {
+            badge.textContent = '🔇 muted';
+            badge.style.color = 'var(--text-muted)';
+        } else {
+            badge.textContent = '';
         }
     }
 
     function sendToAi() {
-        if (recordedTranscript.length === 0) return;
+        if (fullTranscriptLog.length === 0) {
+            alert('Nothing has been said yet — try talking first.');
+            return;
+        }
+        socket.send(JSON.stringify({ type: 'send_to_ai', transcript: fullTranscriptLog }));
 
-        const fullText = recordedTranscript.map(t => `${t.username}: ${t.text}`).join('\n');
-        
-        socket.send(JSON.stringify({
-            'type': 'send_to_ai',  
-            'transcript': recordedTranscript,  
-        }));
-
-        // UI Reset
-        document.getElementById('send-ai-btn').classList.add('hidden');
-        recordedTranscript = [];
-        
-        // Visual feedback
         const aiPanel = document.getElementById('ai-response-panel');
         const aiContent = document.getElementById('ai-response-content');
         aiPanel.classList.remove('hidden');
-        aiContent.innerHTML = '<span class="animate-pulse text-indigo-500 italic">AI is thinking...</span>';
+        aiContent.classList.remove('cursor-blink');
+        aiContent.dataset.streaming = 'false';
+        aiContent.innerHTML = '<span style="color: var(--cyan); opacity: 0.7;">Thinking…</span>';
     }
 
-    // ─── WebSocket Logic ──────────────────────────
     const roomSlug = '{{ room.slug }}';
     const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${wsScheme}://${window.location.host}/ws/rooms/${roomSlug}/`);
@@ -245,48 +295,63 @@
         const data = JSON.parse(e.data);
 
         if (data.type === 'chat_message') {
-            appendMessage('chat-messages', data.username, data.message, 'text-indigo-400');
-        } 
+            appendMessage('chat-messages', data.username, data.message);
+        }
         else if (data.type === 'transcript') {
             const placeholder = document.getElementById('transcript-placeholder');
             if (placeholder) placeholder.remove();
-            
-            // For transcripts, we use a slightly different style
+
             const panel = document.getElementById('transcript-panel');
-                // 1. Create a unique ID for this user's current "active" transcript
             const interimId = `interim-${data.username}`;
             let interimElem = document.getElementById(interimId);
-            
-                // 2. If it's an interim result, update or create the element
+
             if (!interimElem) {
                 interimElem = document.createElement('div');
                 interimElem.id = interimId;
-                interimElem.className = 'text-sm text-gray-500 italic';
+                interimElem.className = 'italic';
+                interimElem.style.color = 'var(--text-muted)';
                 panel.appendChild(interimElem);
             }
-            interimElem.innerHTML = `<span class="text-indigo-500/70 font-medium">${data.username}:</span> ${data.text}`;
+            interimElem.innerHTML = `<span style="color: var(--amber); opacity: 0.7;">${data.username}:</span> ${data.text}`;
 
-                // 3. If it's final, convert it to a normal transcript and remove the interim element
             if (data.is_final) {
                 const finalDiv = document.createElement('div');
-                finalDiv.className = 'text-sm text-gray-300';
-                finalDiv.innerHTML = `<span class="text-indigo-400 font-medium">${data.username}:</span> ${data.text}`;
+                finalDiv.innerHTML = `<span style="color: var(--amber);">${data.username}:</span> <span style="color: var(--text);">${data.text}</span>`;
                 panel.insertBefore(finalDiv, interimElem);
                 interimElem.remove();
+                fullTranscriptLog.push({ username: data.username, text: data.text });
             }
-
         }
-        else if (data.type === 'ai_response') {
-            document.getElementById('ai-response-panel').classList.remove('hidden');
-            document.getElementById('ai-response-content').textContent = data.message;
+        else if (data.type === 'ai_thinking') {
+            const aiPanel = document.getElementById('ai-response-panel');
+            const aiContent = document.getElementById('ai-response-content');
+            aiPanel.classList.remove('hidden');
+            aiContent.classList.remove('cursor-blink');
+            aiContent.dataset.streaming = 'false';
+            aiContent.innerHTML = '<span style="color: var(--cyan); opacity: 0.7;">Thinking…</span>';
+        }
+        else if (data.type === 'ai_response_chunk') {
+            const aiPanel = document.getElementById('ai-response-panel');
+            const aiContent = document.getElementById('ai-response-content');
+            aiPanel.classList.remove('hidden');
+            if (aiContent.dataset.streaming !== 'true') {
+                aiContent.textContent = '';
+                aiContent.dataset.streaming = 'true';
+                aiContent.classList.add('cursor-blink');
+            }
+            aiContent.textContent += data.delta;
+            if (data.done) {
+                aiContent.dataset.streaming = 'false';
+                aiContent.classList.remove('cursor-blink');
+            }
         }
         else if (data.type === 'user_join') {
             if (!document.getElementById(`member-${data.username}`)) {
                 const list = document.getElementById('members-list');
                 const li = document.createElement('li');
                 li.id = `member-${data.username}`;
-                li.className = 'flex items-center gap-2';
-                li.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div><span class="text-sm text-gray-300">${data.username}</span>`;
+                li.className = 'flex items-center justify-between gap-2';
+                li.innerHTML = `<div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background: #6FCF97;"></div><span class="text-sm">${data.username}</span><span id="status-badge-${data.username}" class="text-xs"></span></div>`;
                 list.appendChild(li);
             }
             addNotification(`${data.username} joined`);
@@ -296,13 +361,29 @@
             if (member) member.remove();
             addNotification(`${data.username} left`);
         }
+        else if (data.type === 'member_status') {
+            updateStatusBadge(data.username, data.muted, data.deafened);
+        }
+        else if (data.type === 'member_kicked') {
+            if (data.target_username === myUsername) {
+                // Route through a real Django view so the "you were kicked"
+                // message shows up as a proper flash message on the rooms
+                // list page — not a JS alert() that's easy to dismiss and
+                // forget, and not a hardcoded redirect URL baked into JS.
+                window.location.href = "{% url 'room_kicked_notice' %}";
+            } else {
+                const member = document.getElementById(`member-${data.target_username}`);
+                if (member) member.remove();
+                addNotification(`${data.target_username} was removed`);
+            }
+        }
     };
 
-    function appendMessage(containerId, username, message, nameColor) {
+    function appendMessage(containerId, username, message) {
         const container = document.getElementById(containerId);
         const div = document.createElement('div');
-        div.className = 'text-sm py-1';
-        div.innerHTML = `<span class="${nameColor} font-bold">${username}</span>: <span class="text-gray-300">${message}</span>`;
+        div.className = 'py-1';
+        div.innerHTML = `<span style="color: var(--amber); font-weight: 500;">${username}</span>: <span style="color: var(--text);">${message}</span>`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
@@ -310,7 +391,8 @@
     function addNotification(text) {
         const container = document.getElementById('chat-messages');
         const div = document.createElement('div');
-        div.className = 'text-gray-600 text-[10px] uppercase tracking-widest text-center py-2';
+        div.className = 'text-[10px] uppercase tracking-widest text-center py-2 font-mono';
+        div.style.color = 'var(--text-muted)';
         div.textContent = text;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
@@ -320,7 +402,7 @@
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
         if (message) {
-            socket.send(JSON.stringify({ 'type': 'chat_message', 'message': message }));
+            socket.send(JSON.stringify({ type: 'chat_message', message: message }));
             input.value = '';
         }
     }
