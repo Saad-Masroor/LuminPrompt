@@ -1,4 +1,3 @@
-# rooms/models.py
 import uuid
 from django.db import models
 from django.conf import settings
@@ -44,6 +43,11 @@ class ChatMessage(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='chat_messages')
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     message = models.TextField()
+    # Self-referential FK for "reply to" — null means it's a top-level message.
+    reply_to = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies')
+    # Soft delete: we keep the row (audit trail, and so reply_to references
+    # of *other* messages don't break) but hide it from clients.
+    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -57,6 +61,7 @@ class TranscriptLine(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='transcript_lines')
     speaker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     text = models.TextField()
+    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

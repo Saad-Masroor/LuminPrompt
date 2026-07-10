@@ -34,6 +34,12 @@ class RoomConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         if not hasattr(self, 'room_group_name'):
             return
+        # Make sure nobody's "X is typing…" indicator gets stuck on if this
+        # user closes the tab mid-keystroke, before their debounce timer fires.
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'user_typing', 'username': self.user.username, 'is_typing': False}
+        )
         await self.channel_layer.group_send(
             self.room_group_name,
             {'type': 'user_leave', 'username': self.user.username}
@@ -50,20 +56,28 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
         if message_type == 'chat_message':
             message_text = data.get('message')
-            await self.save_chat_message(message_text)
+            reply_to_id = data.get('reply_to')
+            saved = await self.save_chat_message(message_text, reply_to_id)
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {'type': 'chat_message', 'message': message_text, 'username': self.user.username}
+                {
+                    'type': 'chat_message',
+                    'id': saved['id'],
+                    'message': message_text,
+                    'username': self.user.username,
+                    'reply_to': saved['reply_to'],
+                }
             )
 
         elif message_type == 'transcript':
             text = data.get('text')
             is_final = data.get('is_final', False)
+            line_id = None
             if is_final:
-                await self.save_transcript_line(text)
+                line_id = await self.save_transcript_line(text)
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {'type': 'transcript', 'text': text, 'username': self.user.username, 'is_final': is_final}
+                {'type': 'transcript', 'id': line_id, 'text': text, 'username': self.user.username, 'is_final': is_final}
             )
 
         elif message_type == 'send_to_ai':
@@ -85,6 +99,51 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+        elif message_type == 'toggle_hand':
+            # Ephemeral, like mute/deafen — nobody needs this to survive a
+            # reload, so it's a pure broadcast with nothing saved to the DB.
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'member_hand',
+                    'username': self.user.username,
+                    'raised': bool(data.get('raised', False)),
+                }
+            )
+
+        elif message_type == 'typing':
+            # Also ephemeral, same reasoning as toggle_hand — nothing saved,
+            # just a live "someone's composing a message" signal.
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'user_typing',
+                    'username': self.user.username,
+                    'is_typing': bool(data.get('is_typing', False)),
+                }
+            )
+
+        elif message_type == 'force_mute':
+            if not self.is_owner:
+                return
+            target_username = data.get('target_username')
+            if target_username == self.user.username:
+                return
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {'type': 'member_force_muted', 'target_username': target_username}
+            )
+
+        elif message_type == 'delete_message':
+            kind = data.get('message_type')  # 'chat' or 'transcript'
+            msg_id = data.get('id')
+            allowed = await self.mark_deleted(kind, msg_id)
+            if allowed:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {'type': 'message_deleted', 'message_type': kind, 'id': msg_id}
+                )
+
         elif message_type == 'kick_member':
             target_username = data.get('target_username')
             if not self.is_owner:
@@ -104,12 +163,29 @@ class RoomConsumer(AsyncWebsocketConsumer):
         return Room.objects.select_related('created_by').get(slug=self.room_slug)
 
     @database_sync_to_async
-    def save_chat_message(self, message_text):
-        ChatMessage.objects.create(room=self.room, sender=self.user, message=message_text)
+    def save_chat_message(self, message_text, reply_to_id):
+        reply_to = None
+        reply_preview = None
+        if reply_to_id:
+            try:
+                reply_to = ChatMessage.objects.get(id=reply_to_id, room=self.room, is_deleted=False)
+                reply_preview = {
+                    'id': reply_to.id,
+                    'username': reply_to.sender.username,
+                    'snippet': reply_to.message[:80],
+                }
+            except ChatMessage.DoesNotExist:
+                reply_to = None
+
+        msg = ChatMessage.objects.create(
+            room=self.room, sender=self.user, message=message_text, reply_to=reply_to,
+        )
+        return {'id': msg.id, 'reply_to': reply_preview}
 
     @database_sync_to_async
     def save_transcript_line(self, text):
-        TranscriptLine.objects.create(room=self.room, speaker=self.user, text=text)
+        line = TranscriptLine.objects.create(room=self.room, speaker=self.user, text=text)
+        return line.id
 
     @database_sync_to_async
     def save_interaction(self, transcript, response_text):
@@ -117,6 +193,25 @@ class RoomConsumer(AsyncWebsocketConsumer):
             room=self.room, requested_by=self.user,
             transcript_snapshot=transcript, ai_response=response_text,
         )
+
+    @database_sync_to_async
+    def mark_deleted(self, kind, msg_id):
+        """Returns True if the delete was allowed and applied."""
+        model = ChatMessage if kind == 'chat' else TranscriptLine if kind == 'transcript' else None
+        if model is None or msg_id is None:
+            return False
+        try:
+            obj = model.objects.get(id=msg_id, room=self.room)
+        except model.DoesNotExist:
+            return False
+
+        owner_field = obj.sender if kind == 'chat' else obj.speaker
+        if owner_field.username != self.user.username and not self.is_owner:
+            return False
+
+        obj.is_deleted = True
+        obj.save(update_fields=['is_deleted'])
+        return True
 
     @database_sync_to_async
     def ban_member(self, target_username):
@@ -172,7 +267,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
-            'type': 'chat_message', 'message': event['message'], 'username': event['username'],
+            'type': 'chat_message', 'id': event['id'], 'message': event['message'],
+            'username': event['username'], 'reply_to': event['reply_to'],
         }))
 
     async def user_join(self, event):
@@ -183,7 +279,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
     async def transcript(self, event):
         await self.send(text_data=json.dumps({
-            'type': 'transcript', 'text': event['text'],
+            'type': 'transcript', 'id': event['id'], 'text': event['text'],
             'username': event['username'], 'is_final': event['is_final'],
         }))
 
@@ -199,6 +295,26 @@ class RoomConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'member_status', 'username': event['username'],
             'muted': event['muted'], 'deafened': event['deafened'],
+        }))
+
+    async def member_hand(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'member_hand', 'username': event['username'], 'raised': event['raised'],
+        }))
+
+    async def user_typing(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_typing', 'username': event['username'], 'is_typing': event['is_typing'],
+        }))
+
+    async def member_force_muted(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'member_force_muted', 'target_username': event['target_username'],
+        }))
+
+    async def message_deleted(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_deleted', 'message_type': event['message_type'], 'id': event['id'],
         }))
 
     async def member_kicked(self, event):

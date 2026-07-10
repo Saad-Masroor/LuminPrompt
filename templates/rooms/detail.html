@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ room.name }} — LuminPrompt{% endblock %}
 
-{% block main_class %}max-w-6xl mx-auto mt-8 px-4{% endblock %}
+{% block main_class %}max-w-7xl mx-auto mt-8 px-4{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-4">
@@ -14,103 +14,176 @@
     <div class="flex gap-3">
         <button
             onclick="copyInvite('{{ request.scheme }}://{{ request.get_host }}{% url 'room_join' room.slug %}')"
-            class="text-sm px-4 py-2 rounded-lg border transition hover:opacity-80"
+            class="text-sm px-5 py-2.5 rounded-lg border transition hover:opacity-80"
             style="border-color: var(--panel-border); color: var(--text-muted);">
             Copy invite link
         </button>
         <a href="{% url 'rooms_list' %}"
-           class="text-sm px-4 py-2 rounded-lg border transition hover:opacity-80"
+           class="text-sm px-5 py-2.5 rounded-lg border transition hover:opacity-80"
            style="border-color: var(--panel-border); color: var(--text-muted);">
             ← Back
         </a>
     </div>
 </div>
 
-<div class="flex items-center gap-3 mb-6 rounded-xl px-4 py-3" style="background: var(--panel); border: 1px solid var(--panel-border);">
-    <button id="mic-btn" onclick="toggleMute()"
-        class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg border transition"
-        style="border-color: var(--panel-border); color: var(--text-muted);">
-        <span id="mic-icon">🎤</span> <span id="mic-label">Mic on</span>
-    </button>
-    <button id="deafen-btn" onclick="toggleDeafen()"
-        class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg border transition"
-        style="border-color: var(--panel-border); color: var(--text-muted);">
-        <span id="deafen-icon">🔊</span> <span id="deafen-label">Not deafened</span>
-    </button>
-    <a href="{% url 'room_leave' room.slug %}"
-       onclick="return confirm('Leave this room?')"
-       class="flex items-center gap-2 text-xs font-mono px-4 py-2 rounded-lg transition ml-auto hover:opacity-90"
-       style="background: var(--danger); color: #1A0A08;">
-        Leave room
-    </a>
-</div>
+<div class="room-grid">
 
-<div class="grid grid-cols-4 gap-6">
+    <!-- ─── Left: members list + Discord-style bottom control bar ── -->
+    <div class="flex flex-col order-2 lg:order-1">
+        <div class="rounded-xl border sticky top-8 flex flex-col overflow-hidden" style="background: var(--panel); border-color: var(--panel-border);">
 
-    <div class="col-span-3 flex flex-col gap-6" id="main-panels">
-
-        <div class="rounded-xl p-4" style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--amber);">
-            <div class="flex justify-between items-center mb-3">
-                <h2 class="text-xs uppercase tracking-widest font-mono" style="color: var(--amber);">
-                    Live transcript
+            <!-- Members list -->
+            <div class="p-3.5 max-h-[50vh] overflow-y-auto">
+                <h2 class="text-[10px] uppercase tracking-widest font-mono mb-3.5" style="color: var(--text-muted);">
+                    Members
                 </h2>
-                <div id="listening-indicator" class="hidden items-center gap-1.5">
-                    <div class="waveform-bar w-1 h-3 rounded-full" style="background: var(--amber);"></div>
-                    <div class="waveform-bar w-1 h-4 rounded-full" style="background: var(--amber);"></div>
-                    <div class="waveform-bar w-1 h-2 rounded-full" style="background: var(--amber);"></div>
+                <ul id="members-list" class="space-y-3.5">
+                    {% for member in members %}
+                    <li id="member-{{ member.username }}" class="member-row group flex items-center justify-between gap-1">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="relative shrink-0">
+                                <div class="member-avatar avatar-ring w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-semibold" data-user="{{ member.username }}"></div>
+                                <span class="badge-overlay hidden" id="badge-{{ member.username }}"></span>
+                            </div>
+                            <span class="text-sm truncate">{{ member.username }}</span>
+                            <span class="hand-indicator hidden shrink-0" id="hand-{{ member.username }}" title="Hand raised">✋</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            {% if is_owner and member != room.created_by %}
+                                <button class="row-action" onclick="forceMute('{{ member.username }}')" title="Server mute">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/></svg>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Discord-style user bar: self identity + icon-only controls -->
+            <div class="flex items-center gap-1.5 px-2.5 py-2.5 border-t" style="background: var(--bg); border-color: var(--panel-border);">
+                <div id="self-avatar" class="avatar-ring w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-semibold shrink-0"></div>
+                <div class="flex-1 min-w-0 mr-0.5">
+                    <div class="text-xs font-medium truncate">{{ request.user.username }}</div>
+                    <div class="text-[10px] font-mono truncate" id="mic-label" style="color: var(--text-muted);">Mic off</div>
+                </div>
+                <button id="hand-btn" onclick="toggleHand()" title="Raise hand (H)" class="control-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-1-6-3l-3.3-4.3a2 2 0 0 1 3.1-2.5L8 14"/></svg>
+                </button>
+                <button id="mic-btn" onclick="toggleMute()" title="Toggle microphone (M)" class="control-btn">
+                    <span id="mic-icon-on" class="icon-slot hidden">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                    </span>
+                    <span id="mic-icon-off" class="icon-slot">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                    </span>
+                </button>
+                <button id="deafen-btn" onclick="toggleDeafen()" title="Toggle deafen (D)" class="control-btn">
+                    <span id="deafen-icon-on" class="icon-slot">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v-3a9 9 0 0 1 18 0v3"/><path d="M21 14v3a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M3 14v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3Z"/></svg>
+                    </span>
+                    <span id="deafen-icon-off" class="icon-slot hidden">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M3 14v-3a9 9 0 0 1 15.5-6.36"/><path d="M21 12.5V14"/><path d="M21 14v3a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M3 14v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3Z"/></svg>
+                    </span>
+                </button>
+                <a href="{% url 'room_leave' room.slug %}"
+                   onclick="return confirm('Leave this room?')"
+                   title="Leave room"
+                   class="control-btn control-btn-danger">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Middle: unified transcript + chat + AI feed ─────────── -->
+    <div class="flex flex-col order-1 lg:order-2">
+        <div class="rounded-xl p-4 flex flex-col room-feed-card" style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--amber);">
+
+            <div class="flex justify-between items-center mb-3 pb-3 border-b" style="border-color: var(--panel-border);">
+                <h2 class="text-xs uppercase tracking-widest font-mono" style="color: var(--amber);">
+                    Room
+                </h2>
+                <div class="flex items-center gap-3">
+                    <div id="listening-indicator" class="hidden items-center gap-1.5">
+                        <div class="waveform-bar w-1 h-3 rounded-full" style="background: var(--amber);"></div>
+                        <div class="waveform-bar w-1 h-4 rounded-full" style="background: var(--amber);"></div>
+                        <div class="waveform-bar w-1 h-2 rounded-full" style="background: var(--amber);"></div>
+                    </div>
+                    {% if is_owner %}
+                    <button id="send-ai-btn" onclick="sendToAi()" title="Send to AI (Ctrl/Cmd + Enter)"
+                        class="text-sm font-mono px-5 py-2.5 rounded-lg transition hover:opacity-90"
+                        style="background: var(--cyan); color: #0A1F1C;">
+                        Send to AI
+                    </button>
+                    {% endif %}
                 </div>
             </div>
 
-            <div id="transcript-panel" class="space-y-2 min-h-[150px] max-h-48 overflow-y-auto mb-4 border-b pb-4 font-mono text-sm" style="border-color: var(--panel-border);">
-                {% for line in recent_transcript %}
-                    <div><span style="color: var(--amber);">{{ line.username }}:</span> <span style="color: var(--text);">{{ line.text }}</span></div>
+            <!-- Unified feed: transcript lines, chat messages and AI replies, in time order -->
+            <div id="feed-container" class="flex-1 space-y-1 overflow-y-auto mb-3 text-sm pr-1">
+                {% for item in feed %}
+                    {% if item.kind == 'transcript' %}
+                        <div class="transcript-line group flex items-start gap-2 py-1" data-line-id="{{ item.id }}">
+                            <span class="speaker-chip shrink-0" data-user="{{ item.username }}"></span>
+                            <span class="flex-1 font-mono"><span style="color: var(--amber);">{{ item.username }}:</span> <span style="color: var(--text);">{{ item.text }}</span></span>
+                            {% if item.can_delete %}
+                                <button class="row-action" onclick="deleteMessage('transcript', {{ item.id }}, this)" title="Delete">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </button>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="chat-msg group py-1 flex items-start gap-2" data-message-id="{{ item.id }}" data-username="{{ item.username }}">
+                            <span class="speaker-chip shrink-0" data-user="{{ item.username }}"></span>
+                            <div class="flex-1 min-w-0">
+                                {% if item.reply_to %}
+                                    <div class="reply-quote">
+                                        <span style="color: var(--text-muted);">↪ {{ item.reply_to.username }}:</span>
+                                        <span style="color: var(--text-muted);">{{ item.reply_to.snippet }}</span>
+                                    </div>
+                                {% endif %}
+                                <span class="msg-text"><span style="color: var(--amber); font-weight: 500;">{{ item.username }}</span>: <span style="color: var(--text);">{{ item.text }}</span></span>
+                            </div>
+                            <div class="row-actions shrink-0">
+                                <button class="row-action" onclick="startReply({{ item.id }}, '{{ item.username|escapejs }}', '{{ item.text|truncatechars:60|escapejs }}')" title="Reply">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                                </button>
+                                <button class="row-action" onclick="copyText(this.closest('.chat-msg').querySelector('.msg-text').innerText, this)" title="Copy">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                                {% if item.can_delete %}
+                                    <button class="row-action" onclick="deleteMessage('chat', {{ item.id }}, this)" title="Delete">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
                 {% empty %}
-                    <p class="text-xs" id="transcript-placeholder" style="color: var(--text-muted);">Nothing said yet. Turn your mic on and speak.</p>
+                    <p class="text-xs" id="feed-placeholder" style="color: var(--text-muted);">Nothing here yet. Turn your mic on and speak, or say hi in chat.</p>
                 {% endfor %}
             </div>
 
-            <div class="flex gap-2 items-center">
-                {% if is_owner %}
-                <button id="send-ai-btn" onclick="sendToAi()"
-                    class="text-xs font-mono px-4 py-2 rounded-lg transition hover:opacity-90"
-                    style="background: var(--cyan); color: #0A1F1C;">
-                    Send to AI
-                </button>
-                {% endif %}
+            <div id="reply-banner" class="hidden items-center justify-between text-xs px-3 py-2 rounded-lg mb-2" style="background: var(--bg); border: 1px solid var(--panel-border); color: var(--text-muted);">
+                <span id="reply-banner-text"></span>
+                <button onclick="cancelReply()" class="font-mono" style="color: var(--danger);">✕</button>
             </div>
-        </div>
 
-        <div id="ai-response-panel" class="hidden rounded-xl p-4" style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--cyan);">
-            <h2 class="text-xs uppercase tracking-widest font-mono mb-3" style="color: var(--cyan);">
-                AI response
-            </h2>
-            <div id="ai-response-content" class="text-sm leading-relaxed whitespace-pre-wrap font-mono" style="color: var(--text);"></div>
-        </div>
-
-        <div class="rounded-xl p-4 border flex flex-col h-full" style="background: var(--panel); border-color: var(--panel-border);">
-            <h2 class="text-xs uppercase tracking-widest font-mono mb-3" style="color: var(--text-muted);">
-                Chat
-            </h2>
-            <div id="chat-messages" class="space-y-2 min-h-[200px] max-h-80 overflow-y-auto mb-4 text-sm">
-                {% for msg in recent_chat %}
-                    <div class="py-1"><span style="color: var(--amber); font-weight: 500;">{{ msg.sender.username }}</span>: <span style="color: var(--text);">{{ msg.message }}</span></div>
-                {% empty %}
-                    <p class="text-xs" style="color: var(--text-muted);">Messages will appear here.</p>
-                {% endfor %}
-            </div>
+            <div id="typing-indicator" class="text-xs h-4 mb-1.5 font-mono" style="color: var(--text-muted);"></div>
 
             <div class="flex gap-2">
                 <input
                     type="text"
                     id="chat-input"
-                    placeholder="Type a message..."
-                    class="flex-1 rounded-lg px-4 py-2 border text-sm focus:outline-none transition"
+                    placeholder="Type a message... (/ to focus)"
+                    class="flex-1 rounded-lg px-4 py-3 border text-sm focus:outline-none transition"
                     style="background: var(--bg); border-color: var(--panel-border); color: var(--text);"
                     onfocus="this.style.borderColor='var(--amber)'"
                     onblur="this.style.borderColor='var(--panel-border)'">
                 <button
                     onclick="sendMessage()"
-                    class="px-6 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+                    class="px-7 py-3 rounded-lg text-sm font-medium transition hover:opacity-90"
                     style="background: var(--amber); color: #14110A;">
                     Send
                 </button>
@@ -118,32 +191,43 @@
         </div>
     </div>
 
-    <div class="col-span-1">
-        <div class="rounded-xl p-4 border sticky top-8" style="background: var(--panel); border-color: var(--panel-border);">
-            <h2 class="text-xs uppercase tracking-widest font-mono mb-4" style="color: var(--text-muted);">
-                Members
+    <!-- ─── Right: keyboard shortcuts (compact, not stretched) ───── -->
+    <div class="flex flex-col order-3">
+        <div class="rounded-xl p-4 sticky top-8" style="background: var(--panel); border: 1px solid var(--panel-border); border-top: 2px solid var(--cyan);">
+            <h2 class="text-[10px] uppercase tracking-widest font-mono mb-2.5" style="color: var(--cyan);">
+                Shortcuts
             </h2>
-            <ul id="members-list" class="space-y-3">
-                {% for member in members %}
-                <li id="member-{{ member.username }}" class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full" style="background: #6FCF97;"></div>
-                        <span class="text-sm">{{ member.username }}</span>
-                        {% if member == room.created_by %}
-                            <span class="text-[10px] uppercase px-1.5 py-0.5 rounded border font-mono"
-                                  style="border-color: var(--amber-dim); color: var(--amber);">owner</span>
-                        {% endif %}
-                        <span id="status-badge-{{ member.username }}" class="text-xs"></span>
-                    </div>
-                    {% if is_owner and member != room.created_by %}
-                        <button onclick="kickMember('{{ member.username }}')"
-                            class="text-xs font-mono px-2 py-0.5 rounded transition hover:opacity-80"
-                            style="color: var(--danger);" title="Remove from room">
-                            remove
-                        </button>
-                    {% endif %}
+            <ul class="text-[11px] font-mono" style="color: var(--text-muted);">
+                <li class="flex items-center justify-between gap-2 py-1.5">
+                    <span>Focus chat</span>
+                    <kbd class="shortcut-key">/</kbd>
                 </li>
-                {% endfor %}
+                <li class="flex items-center justify-between gap-2 py-1.5">
+                    <span>Send message</span>
+                    <kbd class="shortcut-key">Enter</kbd>
+                </li>
+                <li class="flex items-center justify-between gap-2 py-1.5">
+                    <span>Toggle mic</span>
+                    <kbd class="shortcut-key">M</kbd>
+                </li>
+                <li class="flex items-center justify-between gap-2 py-1.5">
+                    <span>Raise hand</span>
+                    <kbd class="shortcut-key">H</kbd>
+                </li>
+                <li class="flex items-center justify-between gap-2 py-1.5">
+                    <span>Deafen</span>
+                    <kbd class="shortcut-key">D</kbd>
+                </li>
+                <li class="flex items-center justify-between gap-2 py-1.5">
+                    <span>Cancel reply</span>
+                    <kbd class="shortcut-key">Esc</kbd>
+                </li>
+                {% if is_owner %}
+                <li class="flex items-center justify-between gap-2 py-1.5">
+                    <span>Send to AI</span>
+                    <kbd class="shortcut-key">⌘⏎</kbd>
+                </li>
+                {% endif %}
             </ul>
         </div>
     </div>
@@ -151,19 +235,390 @@
 
 {{ recent_transcript|json_script:"transcript-data" }}
 
+<style>
+    /* Room layout: stacked single column on narrow screens (feed first,
+       via the order-* utilities on the column wrappers), fixed-width
+       rails flanking a fluid feed from the lg breakpoint up. Fixed pixel
+       tracks only ever apply once there's actually room for them. */
+    .room-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    @media (min-width: 1024px) {
+        .room-grid {
+            grid-template-columns: 200px minmax(0, 1fr) 190px;
+        }
+    }
+
+    .room-feed-card {
+        height: calc(100vh - 320px);
+        min-height: 420px;
+    }
+    @media (min-width: 1024px) {
+        .room-feed-card {
+            height: calc(100vh - 220px);
+            min-height: 480px;
+        }
+    }
+
+    .avatar-ring {
+        border: 2px solid transparent;
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .avatar-ring.speaking {
+        border-color: #6FCF97;
+        box-shadow: 0 0 0 3px rgba(111, 207, 151, 0.25);
+        animation: speak-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes speak-pulse {
+        0%, 100% { box-shadow: 0 0 0 3px rgba(111, 207, 151, 0.22); }
+        50% { box-shadow: 0 0 0 5px rgba(111, 207, 151, 0.38); }
+    }
+
+    .badge-overlay {
+        position: absolute;
+        bottom: -4px;
+        right: -4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #1c1f27;
+        border: 2px solid var(--panel);
+        color: var(--danger);
+    }
+    .badge-overlay svg { width: 11px; height: 11px; }
+
+    .control-btn {
+        width: 32px; height: 32px; border-radius: 8px; shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--text-muted); background: transparent;
+        border: none; transition: background 0.15s ease, color 0.15s ease;
+        flex-shrink: 0;
+    }
+    .control-btn:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+    .control-btn.active-mic-off { color: var(--danger); background: rgba(232, 84, 77, 0.12); }
+    .control-btn.active-deafen { color: var(--danger); background: rgba(232, 84, 77, 0.12); }
+    .control-btn.active-hand { color: var(--amber); background: rgba(232, 163, 61, 0.15); }
+    .control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .control-btn-danger { color: var(--danger); }
+    .control-btn-danger:hover { background: rgba(232, 84, 77, 0.12); }
+
+    .speaker-chip { width: 6px; height: 6px; border-radius: 9999px; margin-top: 6px; }
+
+    .transcript-line.flash, .chat-msg.flash, .ai-msg.flash { animation: line-flash 0.9s ease-out; }
+    @keyframes line-flash {
+        0% { background: rgba(232, 163, 61, 0.12); }
+        100% { background: transparent; }
+    }
+
+    /* Row actions (reply / copy / delete / server-mute) only ever reveal
+       themselves on hover of their row. Using opacity instead of
+       display keeps the layout stable and avoids any Tailwind
+       hidden/group-hover ordering quirks. */
+    .row-actions { display: flex; gap: 4px; }
+    .row-action {
+        width: 22px; height: 22px; border-radius: 6px;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: var(--text-muted); background: var(--bg);
+        border: 1px solid var(--panel-border);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .group:hover .row-action,
+    .group:focus-within .row-action {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .row-action:hover { color: var(--text); border-color: var(--text-muted); }
+
+    .reply-quote {
+        font-size: 11px;
+        border-left: 2px solid var(--panel-border);
+        padding-left: 6px;
+        margin-bottom: 2px;
+    }
+
+    .hand-indicator { font-size: 13px; animation: hand-wave 1.4s ease-in-out infinite; }
+    @keyframes hand-wave {
+        0%, 100% { transform: rotate(0deg); }
+        50% { transform: rotate(18deg); }
+    }
+
+    .copy-btn.copied { color: #6FCF97 !important; border-color: #6FCF97 !important; }
+
+    /* Keyboard shortcut chips */
+    .shortcut-key {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: var(--bg);
+        border: 1px solid var(--panel-border);
+        color: var(--text);
+        white-space: nowrap;
+    }
+
+    /* AI reply bubble — rendered right-aligned in the feed, like a chat
+       participant sitting on the other side of the conversation. */
+    .ai-msg {
+        display: flex;
+        justify-content: flex-end;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 4px 0;
+    }
+    .ai-avatar {
+        width: 22px; height: 22px; border-radius: 9999px;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(77, 216, 199, 0.12);
+        border: 1.5px solid var(--cyan);
+        color: var(--cyan);
+        margin-top: 2px;
+    }
+    .ai-avatar svg { width: 12px; height: 12px; }
+    .ai-bubble {
+        max-width: 78%;
+        background: var(--cyan-dim);
+        border: 1px solid var(--cyan);
+        border-radius: 12px 12px 2px 12px;
+        padding: 8px 12px;
+    }
+    .ai-bubble-header {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--cyan);
+        margin-bottom: 3px;
+    }
+    .ai-bubble-content {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text);
+        white-space: pre-wrap;
+    }
+    .ai-thinking-dots { display: inline-flex; gap: 4px; align-items: center; height: 14px; }
+    .ai-thinking-dots span {
+        width: 5px; height: 5px; border-radius: 9999px;
+        background: var(--cyan);
+        animation: dot-pulse 1.1s ease-in-out infinite;
+    }
+    .ai-thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .ai-thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes dot-pulse {
+        0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+        30% { opacity: 1; transform: translateY(-2px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .avatar-ring.speaking, .hand-indicator, .ai-thinking-dots span { animation: none; }
+        .transcript-line.flash, .chat-msg.flash, .ai-msg.flash { animation: none; }
+    }
+</style>
+
 <script>
     const isOwner = {{ is_owner|yesno:"true,false" }};
     const myUsername = '{{ request.user.username }}';
     let isSpeaking = false;
-    let isMuted = false;
+    // Mic starts OFF by default so the first click always means "turn my
+    // mic on" and the second click always means "turn it off" — no
+    // surprise state from a click that appears to do nothing.
+    let isMuted = true;
     let isDeafened = false;
+    let isHandRaised = false;
+    let isServerMuted = false;
+    let replyingTo = null;
     let recognition = null;
     let fullTranscriptLog = JSON.parse(document.getElementById('transcript-data').textContent);
+    const speakingTimers = {};
+    const SPEAKING_TIMEOUT_MS = 1400;
+    const USER_PALETTE = ['#E8A33D', '#4DD8C7', '#9B8CFA', '#E87DA0', '#A8D96C', '#6FB1E8'];
+    let activeAiContentEl = null; // the .ai-bubble-content currently receiving a streamed reply
+
+    // ─── Typing indicator state ─────────────────────────────────
+    let typingDebounceTimer = null;
+    let amCurrentlyBroadcastingTyping = false;
+    const TYPING_DEBOUNCE_MS = 1500;
+    const TYPING_STALE_MS = 3000; // safety net if a "stopped typing" event is ever lost
+    const typingUsers = new Map(); // username -> stale-hide timer id
+
+    // ─── Per-user color + avatar helpers ──────────────────────
+
+    function colorForUser(username) {
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) {
+            hash = (hash * 31 + username.charCodeAt(i)) >>> 0;
+        }
+        return USER_PALETTE[hash % USER_PALETTE.length];
+    }
+
+    function paintAvatar(el, username) {
+        if (!el) return;
+        const color = colorForUser(username);
+        el.style.background = 'rgba(255, 255, 255, 0.06)';
+        el.style.color = color;
+        el.style.boxShadow = `inset 0 0 0 1.5px ${color}`;
+        el.textContent = username.slice(0, 1).toUpperCase();
+    }
+
+    function paintChip(el, username) {
+        if (!el) return;
+        el.style.background = colorForUser(username);
+    }
+
+    function initAvatars() {
+        paintAvatar(document.getElementById('self-avatar'), myUsername);
+        document.querySelectorAll('.member-avatar').forEach(el => paintAvatar(el, el.dataset.user));
+        document.querySelectorAll('.speaker-chip').forEach(el => paintChip(el, el.dataset.user));
+    }
+
+    function markSpeaking(username) {
+        const avatar = document.querySelector(`#member-${username} .member-avatar`)
+            || (username === myUsername ? document.getElementById('self-avatar') : null);
+        if (!avatar) return;
+        avatar.classList.add('speaking');
+        clearTimeout(speakingTimers[username]);
+        speakingTimers[username] = setTimeout(() => avatar.classList.remove('speaking'), SPEAKING_TIMEOUT_MS);
+    }
+
+    // ─── Copy-to-clipboard ──────────────────────────────────────
+
+    function copyText(text, btnEl) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (!btnEl) return;
+            btnEl.style.color = '#6FCF97';
+            setTimeout(() => { btnEl.style.color = ''; }, 900);
+        });
+    }
+
+    // ─── Raise hand ─────────────────────────────────────────────
+
+    function toggleHand() {
+        isHandRaised = !isHandRaised;
+        document.getElementById('hand-btn').classList.toggle('active-hand', isHandRaised);
+        socket.send(JSON.stringify({ type: 'toggle_hand', raised: isHandRaised }));
+    }
+
+    function updateHandIndicator(username, raised) {
+        const el = document.getElementById(`hand-${username}`);
+        if (el) el.classList.toggle('hidden', !raised);
+    }
+
+    // ─── Typing indicator ────────────────────────────────────────
+
+    function sendTypingSignal(isTyping) {
+        if (isTyping === amCurrentlyBroadcastingTyping) return;
+        amCurrentlyBroadcastingTyping = isTyping;
+        socket.send(JSON.stringify({ type: 'typing', is_typing: isTyping }));
+    }
+
+    function handleLocalTyping() {
+        sendTypingSignal(true);
+        clearTimeout(typingDebounceTimer);
+        typingDebounceTimer = setTimeout(() => sendTypingSignal(false), TYPING_DEBOUNCE_MS);
+    }
+
+    function renderTypingIndicator() {
+        const el = document.getElementById('typing-indicator');
+        const names = [...typingUsers.keys()];
+        if (names.length === 0) {
+            el.textContent = '';
+        } else if (names.length === 1) {
+            el.textContent = `${names[0]} is typing…`;
+        } else if (names.length === 2) {
+            el.textContent = `${names[0]} and ${names[1]} are typing…`;
+        } else {
+            el.textContent = `Several people are typing…`;
+        }
+    }
+
+    function handleRemoteTyping(username, isTyping) {
+        if (username === myUsername) return;
+        if (typingUsers.has(username)) clearTimeout(typingUsers.get(username));
+
+        if (isTyping) {
+            const staleTimer = setTimeout(() => {
+                typingUsers.delete(username);
+                renderTypingIndicator();
+            }, TYPING_STALE_MS);
+            typingUsers.set(username, staleTimer);
+        } else {
+            typingUsers.delete(username);
+        }
+        renderTypingIndicator();
+    }
+
+    // ─── Reply ──────────────────────────────────────────────────
+
+    function startReply(id, username, snippet) {
+        replyingTo = { id, username, snippet };
+        const banner = document.getElementById('reply-banner');
+        document.getElementById('reply-banner-text').textContent = `Replying to ${username}: "${snippet}"`;
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+        document.getElementById('chat-input').focus();
+    }
+
+    function cancelReply() {
+        replyingTo = null;
+        const banner = document.getElementById('reply-banner');
+        banner.classList.add('hidden');
+        banner.classList.remove('flex');
+    }
+
+    // ─── Delete ─────────────────────────────────────────────────
+
+    function deleteMessage(kind, id, btnEl) {
+        if (!confirm('Delete this message?')) return;
+        socket.send(JSON.stringify({ type: 'delete_message', message_type: kind, id: id }));
+    }
+
+    function removeMessageFromDom(kind, id) {
+        const selector = kind === 'chat' ? `.chat-msg[data-message-id="${id}"]` : `.transcript-line[data-line-id="${id}"]`;
+        const el = document.querySelector(selector);
+        if (el) el.remove();
+        maybeShowFeedPlaceholder();
+    }
+
+    function maybeShowFeedPlaceholder() {
+        const container = document.getElementById('feed-container');
+        if (container.querySelector('.chat-msg, .transcript-line, .ai-msg')) return;
+        if (document.getElementById('feed-placeholder')) return;
+        const p = document.createElement('p');
+        p.id = 'feed-placeholder';
+        p.className = 'text-xs';
+        p.style.color = 'var(--text-muted)';
+        p.textContent = 'Nothing here yet. Turn your mic on and speak, or say hi in chat.';
+        container.appendChild(p);
+    }
+
+    // ─── Owner: force mute a member ───────────────────────────────
+
+    function forceMute(targetUsername) {
+        if (!confirm(`Server-mute ${targetUsername}? They won't be able to unmute themselves.`)) return;
+        socket.send(JSON.stringify({ type: 'force_mute', target_username: targetUsername }));
+    }
+
+    function applyForceMute() {
+        isServerMuted = true;
+        if (!isMuted) toggleMute();
+        const btn = document.getElementById('mic-btn');
+        btn.disabled = true;
+        btn.title = 'Muted by the room owner';
+    }
+
+    // ─── Voice recognition ─────────────────────────────────────
 
     function initVoice() {
         if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
             document.getElementById('mic-btn').disabled = true;
-            document.getElementById('mic-label').textContent = 'Not supported';
+            document.getElementById('mic-btn').title = 'Speech recognition not supported in this browser';
             return;
         }
 
@@ -181,13 +636,8 @@
             }
         };
 
-        recognition.onerror = function(event) {
-            console.error("Speech recognition error:", event.error);
-        };
-
-        recognition.onend = function() {
-            if (isSpeaking) recognition.start();
-        };
+        recognition.onerror = function(event) { console.error("Speech recognition error:", event.error); };
+        recognition.onend = function() { if (isSpeaking) recognition.start(); };
     }
 
     function startListening() {
@@ -210,45 +660,40 @@
         socket.send(JSON.stringify({ type: 'set_status', muted: isMuted, deafened: isDeafened }));
     }
 
-    function toggleMute() {
-        isMuted = !isMuted;
+    // Paints the mic button/icon/label to match the current isMuted value,
+    // without touching the recognition engine. Used both on load and
+    // whenever isMuted changes.
+    function renderMicUI() {
         const btn = document.getElementById('mic-btn');
-        if (isMuted) {
-            stopListening();
-            btn.querySelector('#mic-icon').textContent = '🔇';
-            btn.querySelector('#mic-label').textContent = 'Mic off';
-            btn.style.borderColor = 'var(--danger)';
-            btn.style.color = 'var(--danger)';
-        } else {
-            startListening();
-            btn.querySelector('#mic-icon').textContent = '🎤';
-            btn.querySelector('#mic-label').textContent = 'Mic on';
-            btn.style.borderColor = 'var(--panel-border)';
-            btn.style.color = 'var(--text-muted)';
-        }
+        document.getElementById('mic-icon-on').classList.toggle('hidden', isMuted);
+        document.getElementById('mic-icon-off').classList.toggle('hidden', !isMuted);
+        btn.classList.toggle('active-mic-off', isMuted);
+        document.getElementById('mic-label').textContent = isMuted ? 'Mic off' : 'Mic on';
+    }
+
+    function toggleMute() {
+        if (isServerMuted && isMuted) return; // owner-muted: can't self-unmute
+        isMuted = !isMuted;
+        renderMicUI();
+        if (isMuted) { stopListening(); } else { startListening(); }
         broadcastStatus();
     }
 
     function toggleDeafen() {
         isDeafened = !isDeafened;
         const btn = document.getElementById('deafen-btn');
-        const panels = document.getElementById('main-panels');
+        const feed = document.getElementById('feed-container');
+        document.getElementById('deafen-icon-on').classList.toggle('hidden', isDeafened);
+        document.getElementById('deafen-icon-off').classList.toggle('hidden', !isDeafened);
+        btn.classList.toggle('active-deafen', isDeafened);
 
         if (isDeafened) {
             if (!isMuted) toggleMute();
-            panels.style.opacity = '0.4';
-            panels.style.pointerEvents = 'none';
-            btn.querySelector('#deafen-icon').textContent = '🔇';
-            btn.querySelector('#deafen-label').textContent = 'Deafened';
-            btn.style.borderColor = 'var(--danger)';
-            btn.style.color = 'var(--danger)';
+            feed.style.opacity = '0.4';
+            feed.style.pointerEvents = 'none';
         } else {
-            panels.style.opacity = '1';
-            panels.style.pointerEvents = 'auto';
-            btn.querySelector('#deafen-icon').textContent = '🔊';
-            btn.querySelector('#deafen-label').textContent = 'Not deafened';
-            btn.style.borderColor = 'var(--panel-border)';
-            btn.style.color = 'var(--text-muted)';
+            feed.style.opacity = '1';
+            feed.style.pointerEvents = 'auto';
         }
         broadcastStatus();
     }
@@ -259,17 +704,44 @@
     }
 
     function updateStatusBadge(username, muted, deafened) {
-        const badge = document.getElementById(`status-badge-${username}`);
+        const badge = document.getElementById(`badge-${username}`);
         if (!badge) return;
         if (deafened) {
-            badge.textContent = '🔇 deafened';
-            badge.style.color = 'var(--danger)';
+            badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M3 14v-3a9 9 0 0 1 15.5-6.36"/></svg>';
+            badge.classList.remove('hidden');
         } else if (muted) {
-            badge.textContent = '🔇 muted';
-            badge.style.color = 'var(--text-muted)';
+            badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/></svg>';
+            badge.classList.remove('hidden');
         } else {
-            badge.textContent = '';
+            badge.classList.add('hidden');
+            badge.innerHTML = '';
         }
+    }
+
+    // ─── AI reply bubble (rendered inline in the feed, right-aligned) ──
+
+    function aiAvatarSvg() {
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg>';
+    }
+
+    function buildAiMessageNode() {
+        const row = document.createElement('div');
+        row.className = 'ai-msg';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-bubble';
+        bubble.innerHTML = `
+            <div class="ai-bubble-header">AI</div>
+            <div class="ai-bubble-content"><span class="ai-thinking-dots"><span></span><span></span><span></span></span></div>
+        `;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'ai-avatar shrink-0';
+        avatar.innerHTML = aiAvatarSvg();
+
+        row.appendChild(bubble);
+        row.appendChild(avatar);
+        return row;
     }
 
     function sendToAi() {
@@ -279,70 +751,151 @@
         }
         socket.send(JSON.stringify({ type: 'send_to_ai', transcript: fullTranscriptLog }));
 
-        const aiPanel = document.getElementById('ai-response-panel');
-        const aiContent = document.getElementById('ai-response-content');
-        aiPanel.classList.remove('hidden');
-        aiContent.classList.remove('cursor-blink');
-        aiContent.dataset.streaming = 'false';
-        aiContent.innerHTML = '<span style="color: var(--cyan); opacity: 0.7;">Thinking…</span>';
+        const placeholder = document.getElementById('feed-placeholder');
+        if (placeholder) placeholder.remove();
+
+        const feedContainer = document.getElementById('feed-container');
+        const node = buildAiMessageNode();
+        feedContainer.appendChild(node);
+        activeAiContentEl = node.querySelector('.ai-bubble-content');
+        feedContainer.scrollTop = feedContainer.scrollHeight;
     }
 
     const roomSlug = '{{ room.slug }}';
     const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${wsScheme}://${window.location.host}/ws/rooms/${roomSlug}/`);
 
+    function buildChatMessageNode(id, username, message, replyTo) {
+        const div = document.createElement('div');
+        div.className = 'chat-msg group py-1 flex items-start gap-2';
+        div.dataset.messageId = id;
+        div.dataset.username = username;
+
+        const chip = document.createElement('span');
+        chip.className = 'speaker-chip shrink-0';
+        paintChip(chip, username);
+
+        const body = document.createElement('div');
+        body.className = 'flex-1 min-w-0';
+        let replyHtml = '';
+        if (replyTo) {
+            replyHtml = `<div class="reply-quote"><span style="color: var(--text-muted);">↪ ${replyTo.username}:</span> <span style="color: var(--text-muted);">${replyTo.snippet}</span></div>`;
+        }
+        body.innerHTML = `${replyHtml}<span class="msg-text"><span style="color: var(--amber); font-weight: 500;">${username}</span>: <span style="color: var(--text);">${message}</span></span>`;
+
+        const actions = document.createElement('div');
+        actions.className = 'row-actions shrink-0';
+        const canDelete = isOwner || username === myUsername;
+        actions.innerHTML = `
+            <button class="row-action" title="Reply" onclick='startReply(${id}, ${JSON.stringify(username)}, ${JSON.stringify(message.slice(0,60))})'>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+            </button>
+            <button class="row-action" title="Copy" onclick="copyText(this.closest('.chat-msg').querySelector('.msg-text').innerText, this)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            ${canDelete ? `<button class="row-action" title="Delete" onclick="deleteMessage('chat', ${id}, this)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>` : ''}
+        `;
+
+        div.appendChild(chip);
+        div.appendChild(body);
+        div.appendChild(actions);
+        return div;
+    }
+
     socket.onmessage = function(e) {
         const data = JSON.parse(e.data);
+        const feedContainer = document.getElementById('feed-container');
 
         if (data.type === 'chat_message') {
-            appendMessage('chat-messages', data.username, data.message);
+            const placeholder = document.getElementById('feed-placeholder');
+            if (placeholder) placeholder.remove();
+            const node = buildChatMessageNode(data.id, data.username, data.message, data.reply_to);
+            feedContainer.appendChild(node);
+            node.classList.add('flash');
+            setTimeout(() => node.classList.remove('flash'), 900);
+            feedContainer.scrollTop = feedContainer.scrollHeight;
+            // Whoever just sent a message is, by definition, no longer "typing".
+            handleRemoteTyping(data.username, false);
         }
         else if (data.type === 'transcript') {
-            const placeholder = document.getElementById('transcript-placeholder');
+            markSpeaking(data.username);
+            const placeholder = document.getElementById('feed-placeholder');
             if (placeholder) placeholder.remove();
 
-            const panel = document.getElementById('transcript-panel');
             const interimId = `interim-${data.username}`;
             let interimElem = document.getElementById(interimId);
 
             if (!interimElem) {
                 interimElem = document.createElement('div');
                 interimElem.id = interimId;
-                interimElem.className = 'italic';
+                interimElem.className = 'italic flex items-start gap-2 py-1';
                 interimElem.style.color = 'var(--text-muted)';
-                panel.appendChild(interimElem);
+                const chip = document.createElement('span');
+                chip.className = 'speaker-chip shrink-0';
+                paintChip(chip, data.username);
+                const textSpan = document.createElement('span');
+                textSpan.className = 'interim-text flex-1 font-mono';
+                interimElem.appendChild(chip);
+                interimElem.appendChild(textSpan);
+                feedContainer.appendChild(interimElem);
             }
-            interimElem.innerHTML = `<span style="color: var(--amber); opacity: 0.7;">${data.username}:</span> ${data.text}`;
+            interimElem.querySelector('.interim-text').innerHTML = `<span style="color: var(--amber); opacity: 0.7;">${data.username}:</span> ${data.text}`;
 
             if (data.is_final) {
                 const finalDiv = document.createElement('div');
-                finalDiv.innerHTML = `<span style="color: var(--amber);">${data.username}:</span> <span style="color: var(--text);">${data.text}</span>`;
-                panel.insertBefore(finalDiv, interimElem);
+                finalDiv.className = 'transcript-line group flex items-start gap-2 py-1';
+                finalDiv.dataset.lineId = data.id;
+                const chip = document.createElement('span');
+                chip.className = 'speaker-chip shrink-0';
+                paintChip(chip, data.username);
+                const textSpan = document.createElement('span');
+                textSpan.className = 'flex-1 font-mono';
+                textSpan.innerHTML = `<span style="color: var(--amber);">${data.username}:</span> <span style="color: var(--text);">${data.text}</span>`;
+                finalDiv.appendChild(chip);
+                finalDiv.appendChild(textSpan);
+                const canDelete = isOwner;
+                if (canDelete) {
+                    const del = document.createElement('button');
+                    del.className = 'row-action';
+                    del.title = 'Delete';
+                    del.onclick = () => deleteMessage('transcript', data.id, del);
+                    del.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+                    finalDiv.appendChild(del);
+                }
+                feedContainer.insertBefore(finalDiv, interimElem);
                 interimElem.remove();
                 fullTranscriptLog.push({ username: data.username, text: data.text });
+                finalDiv.classList.add('flash');
+                setTimeout(() => finalDiv.classList.remove('flash'), 900);
+                feedContainer.scrollTop = feedContainer.scrollHeight;
             }
         }
         else if (data.type === 'ai_thinking') {
-            const aiPanel = document.getElementById('ai-response-panel');
-            const aiContent = document.getElementById('ai-response-content');
-            aiPanel.classList.remove('hidden');
-            aiContent.classList.remove('cursor-blink');
-            aiContent.dataset.streaming = 'false';
-            aiContent.innerHTML = '<span style="color: var(--cyan); opacity: 0.7;">Thinking…</span>';
+            if (!activeAiContentEl) {
+                const node = buildAiMessageNode();
+                feedContainer.appendChild(node);
+                activeAiContentEl = node.querySelector('.ai-bubble-content');
+            } else {
+                activeAiContentEl.innerHTML = '<span class="ai-thinking-dots"><span></span><span></span><span></span></span>';
+            }
+            delete activeAiContentEl.dataset.streaming;
+            feedContainer.scrollTop = feedContainer.scrollHeight;
         }
         else if (data.type === 'ai_response_chunk') {
-            const aiPanel = document.getElementById('ai-response-panel');
-            const aiContent = document.getElementById('ai-response-content');
-            aiPanel.classList.remove('hidden');
-            if (aiContent.dataset.streaming !== 'true') {
-                aiContent.textContent = '';
-                aiContent.dataset.streaming = 'true';
-                aiContent.classList.add('cursor-blink');
+            if (!activeAiContentEl) return;
+            if (activeAiContentEl.dataset.streaming !== 'true') {
+                activeAiContentEl.textContent = '';
+                activeAiContentEl.dataset.streaming = 'true';
+                activeAiContentEl.classList.add('cursor-blink');
             }
-            aiContent.textContent += data.delta;
+            activeAiContentEl.textContent += data.delta;
+            feedContainer.scrollTop = feedContainer.scrollHeight;
             if (data.done) {
-                aiContent.dataset.streaming = 'false';
-                aiContent.classList.remove('cursor-blink');
+                activeAiContentEl.dataset.streaming = 'false';
+                activeAiContentEl.classList.remove('cursor-blink');
+                activeAiContentEl = null; // next "Send to AI" starts a fresh bubble
             }
         }
         else if (data.type === 'user_join') {
@@ -350,26 +903,51 @@
                 const list = document.getElementById('members-list');
                 const li = document.createElement('li');
                 li.id = `member-${data.username}`;
-                li.className = 'flex items-center justify-between gap-2';
-                li.innerHTML = `<div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background: #6FCF97;"></div><span class="text-sm">${data.username}</span><span id="status-badge-${data.username}" class="text-xs"></span></div>`;
+                li.className = 'member-row group flex items-center justify-between gap-1';
+                li.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-0">
+                        <div class="relative shrink-0">
+                            <div class="member-avatar avatar-ring w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-semibold" data-user="${data.username}"></div>
+                            <span class="badge-overlay hidden" id="badge-${data.username}"></span>
+                        </div>
+                        <span class="text-sm truncate">${data.username}</span>
+                        <span class="hand-indicator hidden shrink-0" id="hand-${data.username}" title="Hand raised">✋</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        ${isOwner ? `<button class="row-action" onclick="forceMute('${data.username}')" title="Server mute">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/></svg>
+                        </button>` : ''}
+                    </div>`;
                 list.appendChild(li);
+                paintAvatar(li.querySelector('.member-avatar'), data.username);
             }
             addNotification(`${data.username} joined`);
         }
         else if (data.type === 'user_leave') {
             const member = document.getElementById(`member-${data.username}`);
             if (member) member.remove();
+            handleRemoteTyping(data.username, false);
             addNotification(`${data.username} left`);
         }
         else if (data.type === 'member_status') {
             updateStatusBadge(data.username, data.muted, data.deafened);
         }
+        else if (data.type === 'member_hand') {
+            updateHandIndicator(data.username, data.raised);
+        }
+        else if (data.type === 'user_typing') {
+            handleRemoteTyping(data.username, data.is_typing);
+        }
+        else if (data.type === 'member_force_muted') {
+            if (data.target_username === myUsername) {
+                applyForceMute();
+            }
+        }
+        else if (data.type === 'message_deleted') {
+            removeMessageFromDom(data.message_type, data.id);
+        }
         else if (data.type === 'member_kicked') {
             if (data.target_username === myUsername) {
-                // Route through a real Django view so the "you were kicked"
-                // message shows up as a proper flash message on the rooms
-                // list page — not a JS alert() that's easy to dismiss and
-                // forget, and not a hardcoded redirect URL baked into JS.
                 window.location.href = "{% url 'room_kicked_notice' %}";
             } else {
                 const member = document.getElementById(`member-${data.target_username}`);
@@ -379,17 +957,8 @@
         }
     };
 
-    function appendMessage(containerId, username, message) {
-        const container = document.getElementById(containerId);
-        const div = document.createElement('div');
-        div.className = 'py-1';
-        div.innerHTML = `<span style="color: var(--amber); font-weight: 500;">${username}</span>: <span style="color: var(--text);">${message}</span>`;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-    }
-
     function addNotification(text) {
-        const container = document.getElementById('chat-messages');
+        const container = document.getElementById('feed-container');
         const div = document.createElement('div');
         div.className = 'text-[10px] uppercase tracking-widest text-center py-2 font-mono';
         div.style.color = 'var(--text-muted)';
@@ -402,21 +971,70 @@
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
         if (message) {
-            socket.send(JSON.stringify({ type: 'chat_message', message: message }));
+            socket.send(JSON.stringify({
+                type: 'chat_message',
+                message: message,
+                reply_to: replyingTo ? replyingTo.id : null,
+            }));
             input.value = '';
+            cancelReply();
+            // Sending a message ends the "typing" state immediately rather
+            // than waiting for the debounce timeout to expire.
+            clearTimeout(typingDebounceTimer);
+            sendTypingSignal(false);
         }
     }
 
     function copyInvite(url) {
-        navigator.clipboard.writeText(url).then(() => {
-            alert('Invite link copied!');
-        });
+        navigator.clipboard.writeText(url).then(() => alert('Invite link copied!'));
     }
 
     document.getElementById('chat-input').addEventListener('keypress', e => {
         if (e.key === 'Enter') sendMessage();
     });
 
+    document.getElementById('chat-input').addEventListener('input', handleLocalTyping);
+
+    // ─── Global keyboard shortcuts ──────────────────────────────
+    // Single-letter shortcuts (M/H/D) are ignored while typing so they
+    // don't hijack normal text entry; Escape and Ctrl/Cmd+Enter always work.
+    document.addEventListener('keydown', (e) => {
+        const isTyping = document.activeElement && (
+            document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'
+        );
+
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && isOwner) {
+            e.preventDefault();
+            sendToAi();
+            return;
+        }
+        if (e.key === 'Escape') {
+            cancelReply();
+            if (isTyping) document.activeElement.blur();
+            return;
+        }
+        if (isTyping) return;
+
+        if (e.key === '/') {
+            e.preventDefault();
+            document.getElementById('chat-input').focus();
+        } else if (e.key.toLowerCase() === 'm') {
+            toggleMute();
+        } else if (e.key.toLowerCase() === 'h') {
+            toggleHand();
+        } else if (e.key.toLowerCase() === 'd') {
+            toggleDeafen();
+        }
+    });
+
+    initAvatars();
+    renderMicUI();
     initVoice();
+
+    // Scroll the feed to the bottom on load so the most recent messages are visible.
+    (function scrollFeedToBottom() {
+        const feedContainer = document.getElementById('feed-container');
+        feedContainer.scrollTop = feedContainer.scrollHeight;
+    })();
 </script>
 {% endblock %}
