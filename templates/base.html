@@ -19,6 +19,10 @@
             --cyan: #4DD8C7;
             --cyan-dim: #1E3D39;
             --danger: #E8544D;
+            --violet: #9B8CFA;
+            --rose: #E87DA0;
+            --lime: #A8D96C;
+            --sky: #6FB1E8;
         }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
         .font-display { font-family: 'Space Grotesk', sans-serif; }
@@ -46,6 +50,15 @@
             .cursor-blink::after { animation: none; }
             .waveform-bar { animation: none; }
         }
+
+        .nav-link { color: var(--text-muted); transition: color 0.15s ease; }
+        .nav-link:hover { color: var(--text); }
+        .nav-icon-btn {
+            width: 28px; height: 28px; border-radius: 7px;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--text-muted); transition: background 0.15s ease, color 0.15s ease;
+        }
+        .nav-icon-btn:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
     </style>
 </head>
 <body class="min-h-screen">
@@ -61,9 +74,15 @@
             </svg>
             <span class="font-display font-semibold text-lg tracking-tight">LuminPrompt</span>
         </a>
-        <div class="flex items-center gap-5 text-sm">
+        <div class="flex items-center gap-4 text-sm">
             {% if user.is_authenticated %}
-                <span style="color: var(--text-muted);" class="font-mono text-xs">{{ user.username }}</span>
+                {# NOTE: swap 'user_profile' below for whatever your urls.py actually names the profile view, if different. #}
+                <a href="{% url 'user_profile' username=user.username %}" class="nav-link font-mono text-xs hover:underline">
+                    {{ user.username }}
+                </a>
+                <a href="{% url 'user_settings' %}" class="nav-icon-btn" title="Settings">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+                </a>
                 <a href="{% url 'logout' %}" class="hover:opacity-80 transition" style="color: var(--danger);">Log out</a>
             {% else %}
                 <a href="{% url 'login' %}" class="hover:opacity-80 transition" style="color: var(--amber);">Log in</a>

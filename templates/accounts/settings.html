@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Settings — LuminPrompt{% endblock %}
+
+{% block main_class %}max-w-lg mx-auto mt-12 px-4{% endblock %}
+
+{% block content %}
+<div class="rounded-xl p-8" style="background: var(--panel); border: 1px solid var(--panel-border);">
+    <h1 class="font-display text-2xl font-semibold mb-6">Settings</h1>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <div>
+            <label class="block text-sm mb-1.5" style="color: var(--text-muted);">Bio</label>
+            {{ form.bio }}
+        </div>
+
+        <div>
+            <label class="block text-sm mb-2" style="color: var(--text-muted);">Accent color</label>
+            <div class="flex gap-2">
+                {% for value, label in form.fields.accent_color.choices %}
+                    <label class="cursor-pointer">
+                        <input type="radio" name="accent_color" value="{{ value }}"
+                               {% if form.accent_color.value == value %}checked{% endif %}
+                               class="hidden peer">
+                        <span class="swatch w-8 h-8 rounded-full block transition"
+                              style="background: var(--{{ value }}); box-shadow: 0 0 0 2px var(--panel);"
+                              title="{{ label }}"></span>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm">Mute mic when joining a room</p>
+                <p class="text-xs" style="color: var(--text-muted);">Start muted every time, unmute manually.</p>
+            </div>
+            <input type="checkbox" name="mute_mic_on_join" {% if form.mute_mic_on_join.value %}checked{% endif %}
+                   class="w-5 h-5">
+        </div>
+
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm">Notification sound</p>
+                <p class="text-xs" style="color: var(--text-muted);">Play a sound on new messages while the tab is in the background.</p>
+            </div>
+            <input type="checkbox" name="notification_sound" {% if form.notification_sound.value %}checked{% endif %}
+                   class="w-5 h-5">
+        </div>
+
+        <button type="submit"
+            class="w-full font-medium py-2.5 rounded-lg transition hover:opacity-90"
+            style="background: var(--amber); color: #14110A;">
+            Save settings
+        </button>
+    </form>
+</div>
+
+<style>
+    input[type="text"], textarea {
+        width: 100%;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--panel-border);
+        background: var(--bg);
+        color: var(--text);
+    }
+    input[name="accent_color"]:checked + .swatch {
+        box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px currentColor;
+    }
+</style>
+{% endblock %}
